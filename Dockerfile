@@ -9,13 +9,14 @@ RUN apk add --no-cache python3 make g++ curl git
 # Install pnpm
 RUN npm install -g pnpm@10.15.1
 
-# Copy package files
+# Copy package files and patches
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile || pnpm install
 
-# Copy source code
+# Copy remaining source code
 COPY . .
 
 # Build application

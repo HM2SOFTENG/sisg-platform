@@ -79,6 +79,17 @@ jobs:
             git checkout main
             git reset --hard origin/main
 
+            # Create .env.production with secrets
+            cat > .env.production << 'ENVEOF'
+            NODE_ENV=production
+            PORT=3000
+            SLACK_ALERTS_WEBHOOK=${{ secrets.SLACK_ALERTS_WEBHOOK }}
+            SLACK_FORMS_WEBHOOK=${{ secrets.SLACK_FORMS_WEBHOOK }}
+            SLACK_ACTIVITY_WEBHOOK=${{ secrets.SLACK_ACTIVITY_WEBHOOK }}
+            SLACK_DEPLOYMENTS_WEBHOOK=${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK }}
+            ENVEOF
+            sed -i 's/^            //' .env.production
+
             # Pull latest image
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
 

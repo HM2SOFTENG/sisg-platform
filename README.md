@@ -261,3 +261,4 @@ docker-compose exec app npm run migrate
 For issues and questions:
 - GitHub: [SISG Platform Repository]
 - Email: info@sentinelintegratedgroup.com
+# sisg-platform

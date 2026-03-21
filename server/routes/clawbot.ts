@@ -39,6 +39,24 @@ router.get("/api/admin/clawbot/agents", adminAuth, async (_req: Request, res: Re
   }
 });
 
+router.post("/api/admin/clawbot/agents", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const agent = await clawbot.createAgent({
+      name: req.body.name,
+      type: req.body.type || "custom",
+      status: req.body.status || "idle",
+      lastRun: req.body.lastRun || "never",
+      nextRun: req.body.nextRun || "never",
+      schedule: req.body.schedule || "manual",
+      lastResult: req.body.lastResult || "",
+      errorCount: req.body.errorCount ?? 0,
+    });
+    res.status(201).json(agent);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create agent" });
+  }
+});
+
 router.put("/api/admin/clawbot/agents/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const result = await clawbot.updateAgent(req.params.id, req.body);

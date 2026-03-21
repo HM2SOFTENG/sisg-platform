@@ -150,6 +150,13 @@ export const clawbot = {
     return storage.read("bot_agents");
   },
 
+  async createAgent(data: Omit<BotAgent, "id">): Promise<BotAgent> {
+    const agent: any = {
+      ...data,
+    };
+    return storage.add("bot_agents", agent);
+  },
+
   async updateAgent(id: string, updates: Partial<BotAgent>): Promise<BotAgent | null> {
     // Try direct command
     const result = await tryDirect<BotAgent>(`/api/agents/${id}`, "post", updates);

@@ -93,8 +93,13 @@ jobs:
             ENVEOF
             sed -i 's/^            //' .env.production
 
-            # Rebuild and start containers with latest code
-            docker-compose build --no-cache
+            # Pull the pre-built image from Docker Hub (built in CI, avoids OOM on droplet)
+            docker pull ${{ secrets.DOCKER_USERNAME }}/sisg-platform:main
+
+            # Tag it so docker-compose uses it instead of building locally
+            docker tag ${{ secrets.DOCKER_USERNAME }}/sisg-platform:main sisg-platform-app:latest
+
+            # Start with the pulled image
             docker-compose up -d
 
             # Wait for container to start and pass health check

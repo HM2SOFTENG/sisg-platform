@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   AreaChart,
@@ -210,7 +211,7 @@ export default function Financials() {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1
-            className="text-3xl font-bold text-white"
+            className="text-xl sm:text-3xl font-bold text-white"
             style={{ fontFamily: "Sora, sans-serif" }}
           >
             Financial Dashboard

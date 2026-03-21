@@ -302,19 +302,19 @@
 
   /* ── Sharp Card System ──────────────────────────────── */
   .glass-card {
-    background: oklch(1 0 0 / 4%);
+    background: var(--sisg-glass);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid oklch(1 0 0 / 10%);
+    border: 1px solid var(--sisg-glass-border);
     border-radius: 0;
     position: relative;
   }
 
   .glass-card-hover {
-    background: oklch(1 0 0 / 4%);
+    background: var(--sisg-glass);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid oklch(1 0 0 / 10%);
+    border: 1px solid var(--sisg-glass-border);
     border-radius: 0;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -350,8 +350,8 @@
 
   /* ── Tech Card with corner cuts ─────────────────────── */
   .tech-card {
-    background: oklch(0.1 0.025 255);
-    border: 1px solid oklch(1 0 0 / 10%);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 0;
     position: relative;
     overflow: hidden;
@@ -365,7 +365,7 @@
     right: 0;
     width: 20px;
     height: 20px;
-    background: oklch(0.07 0.025 255);
+    background: var(--background);
     clip-path: polygon(100% 0, 0 0, 100% 100%);
     transition: all 0.3s ease;
   }
@@ -476,7 +476,7 @@
   /* ── Animated Gradient Border ───────────────────────── */
   .gradient-border {
     position: relative;
-    background: oklch(0.1 0.025 255);
+    background: var(--card);
   }
   .gradient-border::before {
     content: '';
@@ -552,8 +552,8 @@
 
   /* ── Scrollbar ──────────────────────────────────────── */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: oklch(0.07 0.025 255); }
-  ::-webkit-scrollbar-thumb { background: oklch(0.22 0.04 255); }
+  ::-webkit-scrollbar-track { background: var(--background); }
+  ::-webkit-scrollbar-thumb { background: var(--muted); }
   ::-webkit-scrollbar-thumb:hover { background: oklch(0.55 0.24 260 / 60%); }
 
   /* ── Particle Canvas ────────────────────────────────── */

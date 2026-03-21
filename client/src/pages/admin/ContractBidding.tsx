@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
 import { Plus, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface Contract {
   id: string;
@@ -90,9 +91,13 @@ export default function ContractBidding() {
           endDate: "",
           description: "",
         });
+        toast.success("Contract bid created successfully");
+      } else {
+        toast.error("Failed to create contract bid");
       }
     } catch (error) {
       console.error("Failed to create contract:", error);
+      toast.error("Failed to create contract bid");
     }
   };
 
@@ -146,16 +151,16 @@ export default function ContractBidding() {
       <div className="space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
+              <h1 className="text-xl sm:text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
                 Contract <span className="gradient-text">Bidding Pipeline</span>
               </h1>
               <p className="text-gray-400 mt-2">Manage contracts and bid opportunities</p>
             </div>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#0066ff] text-white hover:bg-[#0052cc] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[#0066ff] text-white hover:bg-[#0052cc] transition-colors w-full sm:w-auto"
             >
               <Plus size={18} /> Add Contract
             </button>
@@ -167,7 +172,7 @@ export default function ContractBidding() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-4 gap-4"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
         >
           <div className="tech-card p-5">
             <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Pipeline Value</p>
@@ -295,7 +300,7 @@ export default function ContractBidding() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-2">
                       Title
@@ -322,7 +327,7 @@ export default function ContractBidding() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-2">
                       Contract Value ($)
@@ -355,7 +360,7 @@ export default function ContractBidding() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-2">
                       Status
@@ -376,7 +381,7 @@ export default function ContractBidding() {
                   <div />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-2">
                       Start Date

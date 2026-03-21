@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   FileText,
   Plus,
@@ -115,16 +116,20 @@ const ContentManagement: React.FC = () => {
           updatedItem.content = editContent;
           setContent([...content]);
           setEditingId(null);
+          toast.success('Content saved successfully');
         }
+      } else {
+        toast.error('Failed to save content');
       }
     } catch (error) {
       console.error('Error saving content:', error);
+      toast.error('Error saving content');
     }
   };
 
   const handleAddContent = async () => {
     if (!newContent.title || !newContent.slug || !newContent.content) {
-      alert('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
 
@@ -146,9 +151,13 @@ const ContentManagement: React.FC = () => {
         setContent([...content, created]);
         setNewContent({ title: '', slug: '', type: 'page', content: '' });
         setShowModal(false);
+        toast.success('Content created successfully');
+      } else {
+        toast.error('Failed to create content');
       }
     } catch (error) {
       console.error('Error creating content:', error);
+      toast.error('Error creating content');
     }
   };
 
@@ -205,16 +214,16 @@ const ContentManagement: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="font-sora text-3xl font-bold mb-2">Content Management</h1>
+            <h1 className="font-sora text-xl sm:text-3xl font-bold mb-2">Content Management</h1>
             <p className="text-gray-400">Manage pages, blog posts, and content sections</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
+            className="w-full sm:w-auto flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
           >
             <Plus className="w-4 h-4" />
             Add Content
@@ -302,7 +311,7 @@ const ContentManagement: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
                         <h3 className="font-sora text-lg font-semibold text-white">
                           {item.title}
                         </h3>

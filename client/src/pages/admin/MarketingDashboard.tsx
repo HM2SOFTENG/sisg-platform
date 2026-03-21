@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Plus,
@@ -125,6 +126,7 @@ export default function MarketingDashboard() {
       });
 
       if (response.ok) {
+        toast.success("Campaign created successfully");
         fetchCampaigns();
         setShowModal(false);
         setFormData({
@@ -135,9 +137,12 @@ export default function MarketingDashboard() {
           startDate: "",
           endDate: "",
         });
+      } else {
+        toast.error("Failed to create campaign");
       }
     } catch (error) {
       console.error("Error creating campaign:", error);
+      toast.error("Error creating campaign");
     }
   };
 
@@ -181,11 +186,11 @@ export default function MarketingDashboard() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-between items-center"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
         >
           <div>
             <h1
-              className="text-3xl font-bold text-white"
+              className="text-xl sm:text-3xl font-bold text-white"
               style={{ fontFamily: "Sora, sans-serif" }}
             >
               Marketing Campaigns
@@ -196,7 +201,7 @@ export default function MarketingDashboard() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
           >
             <Plus className="w-5 h-5" />
             Add Campaign
@@ -381,7 +386,7 @@ export default function MarketingDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                       Type
@@ -433,7 +438,7 @@ export default function MarketingDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                       Start Date

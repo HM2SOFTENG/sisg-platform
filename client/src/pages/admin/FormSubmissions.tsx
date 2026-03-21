@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
 import { Search, Trash2, CheckCircle, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 interface Submission {
   id: string;
@@ -62,25 +63,35 @@ export default function FormSubmissions() {
         setSubmissions((prev) =>
           prev.map((sub) => (sub.id === id ? { ...sub, status: newStatus } : sub))
         );
+        toast.success(`Submission marked as ${newStatus}`);
+      } else {
+        toast.error("Failed to update submission");
       }
     } catch (error) {
       console.error("Failed to update submission:", error);
+      toast.error("Failed to update submission");
     }
   };
 
   const deleteSubmission = async (id: string) => {
     try {
       const token = localStorage.getItem("sisg_admin_token");
-      await fetch(`/api/admin/submissions/${id}`, {
+      const response = await fetch(`/api/admin/submissions/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
-      setSubmissions((prev) => prev.filter((sub) => sub.id !== id));
+      if (response.ok) {
+        setSubmissions((prev) => prev.filter((sub) => sub.id !== id));
+        toast.success("Submission deleted successfully");
+      } else {
+        toast.error("Failed to delete submission");
+      }
     } catch (error) {
       console.error("Failed to delete submission:", error);
+      toast.error("Failed to delete submission");
     }
   };
 
@@ -118,7 +129,7 @@ export default function FormSubmissions() {
       <div className="space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
+          <h1 className="text-xl sm:text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
             Contact Form <span className="gradient-text">Submissions</span>
           </h1>
           <p className="text-gray-400 mt-2">Manage and respond to contact form submissions</p>
@@ -129,7 +140,7 @@ export default function FormSubmissions() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-4 gap-4"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
         >
           <div className="tech-card p-5">
             <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Submissions</p>
@@ -173,7 +184,7 @@ export default function FormSubmissions() {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(["all", "new", "reviewed", "responded"] as const).map((status) => (
               <button
                 key={status}
@@ -200,7 +211,10 @@ export default function FormSubmissions() {
           {loading ? (
             <p className="text-gray-400 text-center py-8">Loading submissions...</p>
           ) : filteredSubmissions.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">No submissions found</p>
+            <>
+              {submissions.length > 0 && toast.info("No submissions match your filters")}
+              <p className="text-gray-400 text-center py-8">No submissions found</p>
+            </>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

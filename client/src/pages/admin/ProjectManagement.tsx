@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Plus,
@@ -136,6 +137,7 @@ export default function ProjectManagement() {
       });
 
       if (response.ok) {
+        toast.success("Project created successfully");
         fetchProjects();
         setShowModal(false);
         setFormData({
@@ -147,9 +149,12 @@ export default function ProjectManagement() {
           lead: "",
           deadline: "",
         });
+      } else {
+        toast.error("Failed to create project");
       }
     } catch (error) {
       console.error("Error creating project:", error);
+      toast.error("Failed to create project");
     }
   };
 
@@ -188,10 +193,10 @@ export default function ProjectManagement() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-between items-center"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
         >
           <div>
-            <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
+            <h1 className="text-xl sm:text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
               Project Management
             </h1>
             <p className="text-gray-400 mt-2">Manage and track all projects</p>
@@ -200,7 +205,7 @@ export default function ProjectManagement() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
           >
             <Plus className="w-5 h-5" />
             Add Project
@@ -400,7 +405,7 @@ export default function ProjectManagement() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                       Status
@@ -443,7 +448,7 @@ export default function ProjectManagement() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                       Budget ($)

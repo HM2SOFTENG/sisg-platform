@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { toast } from "sonner";
 import {
   Bot, Cpu, HardDrive, MemoryStick, Wifi, WifiOff, Activity,
   Play, Pause, Send, RefreshCw, AlertTriangle, CheckCircle2,
@@ -212,6 +213,7 @@ export default function ClawBotCenter() {
       if (prevState.status && prevState.status.online !== s.online) {
         if (s.online) {
           addToast("Heartbeat restored", "success");
+          toast.success("Heartbeat restored");
           addActivityEvent({
             type: "heartbeat",
             severity: "success",
@@ -220,6 +222,7 @@ export default function ClawBotCenter() {
           });
         } else {
           addToast("Heartbeat lost", "error");
+          toast.error("Heartbeat lost");
           addActivityEvent({
             type: "heartbeat",
             severity: "error",
@@ -268,8 +271,10 @@ export default function ClawBotCenter() {
 
               if (task.status === "completed") {
                 addToast("Task completed", "success");
+                toast.success("Task completed");
               } else if (task.status === "failed") {
                 addToast(`Task failed: ${task.error || "unknown error"}`, "error");
+                toast.error(`Task failed: ${task.error || "unknown error"}`);
               }
             }
           });
@@ -303,6 +308,7 @@ export default function ClawBotCenter() {
     } catch (e) {
       console.error("Failed to fetch ClawBot data:", e);
       addToast("Failed to fetch data", "error");
+      toast.error("Failed to fetch data");
     }
   }, []);
 
@@ -360,6 +366,7 @@ export default function ClawBotCenter() {
       setHistoryIndex(-1);
 
       addToast("Command sent", "success");
+      toast.success("Command sent");
       addActivityEvent({
         type: "command",
         severity: "info",
@@ -373,17 +380,24 @@ export default function ClawBotCenter() {
     } catch (e) {
       console.error("Failed to send command:", e);
       addToast("Failed to send command", "error");
+      toast.error("Failed to send command");
     }
     setSending(false);
   };
 
   const createTask = async (command: string, priority = "normal") => {
-    await apiFetch("/api/admin/clawbot/tasks", {
-      method: "POST",
-      body: JSON.stringify({ command, priority }),
-    });
-    addToast("Task created", "success");
-    setTimeout(fetchAll, 1000);
+    try {
+      await apiFetch("/api/admin/clawbot/tasks", {
+        method: "POST",
+        body: JSON.stringify({ command, priority }),
+      });
+      addToast("Task created", "success");
+      toast.success("Task created");
+      setTimeout(fetchAll, 1000);
+    } catch (error) {
+      addToast("Failed to create task", "error");
+      toast.error("Failed to create task");
+    }
   };
 
   const quickCommand = (cmd: string) => {
@@ -398,6 +412,7 @@ export default function ClawBotCenter() {
       }).then(() => {
         setCommandHistory(prev => [{ command: cmd, timestamp: Date.now() }, ...prev].slice(0, 50));
         addToast("Command sent", "success");
+        toast.success("Command sent");
         addActivityEvent({
           type: "command",
           severity: "info",
@@ -408,6 +423,7 @@ export default function ClawBotCenter() {
         setTimeout(fetchAll, 1000);
       }).catch(() => {
         addToast("Failed to send command", "error");
+        toast.error("Failed to send command");
       }).finally(() => setSending(false));
     }, 0);
   };
@@ -582,7 +598,7 @@ export default function ClawBotCenter() {
               <Bot className="w-5 h-5 text-[#8b5cf6]" />
             </div>
             <div>
-              <h1 className="text-white text-lg font-bold" style={{ fontFamily: "Sora, sans-serif" }}>
+              <h1 className="text-white text-xl sm:text-3xl font-bold" style={{ fontFamily: "Sora, sans-serif" }}>
                 ClawBot Command Center
               </h1>
               <div className="flex items-center gap-2 text-[11px] font-mono text-gray-500">
@@ -633,7 +649,7 @@ export default function ClawBotCenter() {
 
         {/* ---- ANIMATED SYSTEM GAUGES ---- */}
         {status?.system && status.online && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <GaugeCard icon={Cpu} label="CPU" value={status.system.cpu} />
             <GaugeCard icon={MemoryStick} label="Memory" value={status.system.memory} />
             <GaugeCard icon={HardDrive} label="Disk" value={status.system.disk} />

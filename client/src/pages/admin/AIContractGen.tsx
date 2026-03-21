@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
 import { Copy, Loader } from "lucide-react";
+import { toast } from "sonner";
 
 interface FormData {
   templateType: "Assessment" | "Modernization" | "Security" | "Intelligence" | "Custom";
@@ -31,6 +32,9 @@ export default function AIContractGen() {
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === "templateType") {
+      toast.info(`Template changed to ${value}`);
+    }
   };
 
   const generateContractTemplate = (data: FormData): string => {
@@ -188,7 +192,7 @@ Title: _____________________________
 
   const handleGenerate = async () => {
     if (!formData.clientName || !formData.contractValue || !formData.startDate || !formData.endDate) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -199,6 +203,7 @@ Title: _____________________________
 
       const contract = generateContractTemplate(formData);
       setGeneratedContract(contract);
+      toast.success("Contract generated successfully");
 
       // Optionally post to backend
       try {
@@ -211,16 +216,24 @@ Title: _____________________________
           },
           body: JSON.stringify(formData),
         });
+        toast.success("Contract saved to backend");
       } catch (error) {
         console.log("Note: Could not save to backend, but contract generated locally");
+        toast.info("Contract generated locally (backend save unavailable)");
       }
+    } catch (error) {
+      toast.error("Failed to generate contract");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(generatedContract);
+    navigator.clipboard.writeText(generatedContract).then(() => {
+      toast.success("Contract copied to clipboard");
+    }).catch(() => {
+      toast.error("Failed to copy contract to clipboard");
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -230,7 +243,7 @@ Title: _____________________________
       <div className="space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
+          <h1 className="text-xl sm:text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
             AI Contract <span className="gradient-text">Generator</span>
           </h1>
           <p className="text-gray-400 mt-2">Generate professional service contracts from templates</p>
@@ -241,7 +254,7 @@ Title: _____________________________
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 gap-6"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
         >
           {/* Left Panel - Configuration Form */}
           <div className="tech-card p-6 h-fit space-y-4">

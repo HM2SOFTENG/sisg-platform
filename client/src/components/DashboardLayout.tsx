@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
   CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
@@ -12,6 +13,7 @@ import {
   Sun, Moon, Palette
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 
 type NavSection = { section: string; items: { label: string; href: string; icon: any; color: string }[] };
 
@@ -51,20 +53,34 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, cycleTheme } = useTheme();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    setLocation("/login");
+  };
+
+  const handleThemeChange = () => {
+    cycleTheme();
+    const nextTheme = theme === "dark" ? "light" : theme === "light" ? "sentinel" : "dark";
+    toast.success(`Theme switched to ${nextTheme.charAt(0).toUpperCase() + nextTheme.slice(1)}`);
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="p-5 border-b border-white/8">
+      <div className="p-5 border-b border-[var(--border)]">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-[#0066ff] flex items-center justify-center flex-shrink-0">
             <Shield className="w-4 h-4 text-white" />
           </div>
           <div>
-            <div className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>SISG</div>
-            <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Enterprise</div>
+            <div className="text-[var(--foreground)] font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>SISG</div>
+            <div className="text-[10px] font-mono text-[var(--muted-foreground)] uppercase tracking-widest">Enterprise</div>
           </div>
         </Link>
       </div>
@@ -74,7 +90,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
         {navSections.map((section) => (
           <div key={section.section}>
             <div className="px-3 mb-1">
-              <span className="text-[9px] font-mono text-gray-600 uppercase tracking-[0.2em]">{section.section}</span>
+              <span className="text-[9px] font-mono text-[var(--muted-foreground)] uppercase tracking-[0.2em]">{section.section}</span>
             </div>
             <div className="space-y-0.5">
               {section.items.map((item) => {
@@ -91,7 +107,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                         style={{ color: active ? item.color : "rgba(107,114,128,1)" }}
                       />
                       <span
-                        className={`text-[13px] transition-colors ${active ? "text-white font-medium" : "text-gray-500 group-hover:text-gray-300"}`}
+                        className={`text-[13px] transition-colors ${active ? "text-[var(--foreground)] font-medium" : "text-[var(--muted-foreground)] group-hover:text-gray-300"}`}
                         style={{ fontFamily: "DM Sans, sans-serif" }}
                       >
                         {item.label}
@@ -107,10 +123,10 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/8 space-y-3">
+      <div className="p-4 border-t border-[var(--border)] space-y-3">
         {/* Theme Toggle */}
         <motion.button
-          onClick={cycleTheme}
+          onClick={handleThemeChange}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full flex flex-col items-center gap-2 px-3 py-2.5 hover:bg-white/4 transition-all rounded-md"
@@ -120,7 +136,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             {theme === "dark" && <Moon className="w-4 h-4 text-indigo-400" />}
             {theme === "sentinel" && <Palette className="w-4 h-4 text-blue-500" />}
           </div>
-          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-wider">
+          <span className="text-[10px] font-mono text-[var(--muted-foreground)] uppercase tracking-wider">
             {theme === "sentinel" ? "Sentinel" : theme === "light" ? "Light" : "Dark"}
           </span>
         </motion.button>
@@ -131,19 +147,25 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             <Terminal className="w-3.5 h-3.5 text-[#0066ff]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white text-xs font-medium truncate">Admin User</div>
-            <div className="text-gray-600 text-[10px] font-mono truncate">admin@sisg.gov</div>
+            <div className="text-[var(--foreground)] text-xs font-medium truncate">Admin User</div>
+            <div className="text-[var(--muted-foreground)] text-[10px] font-mono truncate">admin@sisg.gov</div>
           </div>
-          <LogOut className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+          <button
+            onClick={handleLogout}
+            className="w-7 h-7 flex items-center justify-center hover:bg-red-500/20 transition-colors rounded"
+            title="Logout"
+          >
+            <LogOut className="w-3.5 h-3.5 text-gray-600 hover:text-red-400 transition-colors flex-shrink-0" />
+          </button>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[oklch(0.07_0.025_255)] flex overflow-x-hidden">
+    <div className="min-h-screen bg-[var(--background)] flex overflow-x-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-56 xl:w-60 bg-[oklch(0.085_0.025_255)] border-r border-white/8 flex-shrink-0 fixed left-0 top-0 h-full z-30">
+      <aside className="hidden lg:flex flex-col w-56 xl:w-60 bg-[var(--sidebar)] border-r border-[var(--border)] flex-shrink-0 fixed left-0 top-0 h-full z-30">
         <SidebarContent />
       </aside>
 
@@ -163,7 +185,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
               animate={{ x: 0 }}
               exit={{ x: -240 }}
               transition={{ type: "tween", duration: 0.25 }}
-              className="fixed left-0 top-0 h-full w-60 bg-[oklch(0.085_0.025_255)] border-r border-white/8 z-50 lg:hidden"
+              className="fixed left-0 top-0 h-full w-60 bg-[var(--sidebar)] border-r border-[var(--border)] z-50 lg:hidden"
             >
               <div className="absolute top-4 right-4">
                 <button onClick={() => setMobileOpen(false)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 transition-colors">
@@ -179,7 +201,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-56 xl:ml-60">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 bg-[oklch(0.085_0.025_255)]/90 backdrop-blur-sm border-b border-white/8 px-4 sm:px-6 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-20 bg-[var(--sidebar)]/90 backdrop-blur-sm border-b border-[var(--border)] px-4 sm:px-6 py-3 flex items-center gap-3">
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 transition-colors"
@@ -191,12 +213,12 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             <div className="relative hidden sm:flex items-center max-w-xs w-full">
               <Search className="absolute left-3 w-3.5 h-3.5 text-gray-600" />
               <input
-                className="w-full bg-[oklch(0.07_0.025_255)] border border-white/8 text-gray-400 text-xs pl-9 pr-3 py-2 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
+                className="w-full bg-[var(--background)] border border-[var(--border)] text-gray-400 text-xs pl-9 pr-3 py-2 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
                 placeholder="Search..."
               />
             </div>
             {title && (
-              <div className="text-white font-medium text-sm sm:hidden" style={{ fontFamily: "Sora, sans-serif" }}>{title}</div>
+              <div className="text-[var(--foreground)] font-medium text-sm sm:hidden" style={{ fontFamily: "Sora, sans-serif" }}>{title}</div>
             )}
           </div>
 

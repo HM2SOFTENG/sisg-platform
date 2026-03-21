@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface Contract {
@@ -107,7 +108,7 @@ export default function ContractMonitoring() {
       <div className="space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
+          <h1 className="text-xl sm:text-3xl font-bold text-white" style={{ fontFamily: "Sora, sans-serif" }}>
             Contract <span className="gradient-text">Monitoring</span>
           </h1>
           <p className="text-gray-400 mt-2">Track active contracts and project progress</p>
@@ -118,7 +119,7 @@ export default function ContractMonitoring() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-4 gap-4"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
         >
           <div className="tech-card p-5">
             <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Active Value</p>
@@ -152,7 +153,10 @@ export default function ContractMonitoring() {
           className="flex gap-2"
         >
           <button
-            onClick={() => setShowOnlyActive(true)}
+            onClick={() => {
+              setShowOnlyActive(true);
+              toast.success("Filtered to active contracts");
+            }}
             className={`px-4 py-2 text-sm font-mono uppercase tracking-widest transition-colors ${
               showOnlyActive
                 ? "bg-[#0066ff] text-white"
@@ -162,7 +166,10 @@ export default function ContractMonitoring() {
             Active Only
           </button>
           <button
-            onClick={() => setShowOnlyActive(false)}
+            onClick={() => {
+              setShowOnlyActive(false);
+              toast.success("Showing all contracts");
+            }}
             className={`px-4 py-2 text-sm font-mono uppercase tracking-widest transition-colors ${
               !showOnlyActive
                 ? "bg-[#0066ff] text-white"
@@ -183,7 +190,12 @@ export default function ContractMonitoring() {
           {loading ? (
             <p className="text-gray-400">Loading contracts...</p>
           ) : displayedContracts.length === 0 ? (
-            <p className="text-gray-400">No contracts to display</p>
+            <>
+              {(() => {
+                toast.info("No contracts found with current filter");
+                return <p className="text-gray-400">No contracts to display</p>;
+              })()}
+            </>
           ) : (
             displayedContracts.map((contract) => {
               const completion = contract.completionPercent || 0;
@@ -221,7 +233,7 @@ export default function ContractMonitoring() {
                   </div>
 
                   {/* Status and Dates */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Status</p>
                       <div className="flex items-center gap-2 mt-2">

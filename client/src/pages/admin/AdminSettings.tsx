@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Lock,
   Slack,
@@ -84,16 +85,19 @@ const AdminSettings: React.FC = () => {
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError('All fields are required');
+      toast.error('All fields are required');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setPasswordError('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
 
     if (newPassword.length < 8) {
       setPasswordError('New password must be at least 8 characters');
+      toast.error('New password must be at least 8 characters');
       return;
     }
 
@@ -115,11 +119,14 @@ const AdminSettings: React.FC = () => {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        toast.success('Password changed successfully');
       } else {
         setPasswordError('Current password is incorrect');
+        toast.error('Current password is incorrect');
       }
     } catch (error) {
       setPasswordError('Error changing password');
+      toast.error('Error changing password');
       console.error(error);
     }
   };
@@ -143,9 +150,13 @@ const AdminSettings: React.FC = () => {
 
       if (response.ok) {
         setSettingsMessage('Settings saved successfully');
+        toast.success('Settings saved successfully');
+      } else {
+        toast.error('Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
+      toast.error('Error saving settings');
     }
   };
 
@@ -165,9 +176,13 @@ const AdminSettings: React.FC = () => {
           w.name === webhookName ? { ...w, status: 'active' as const } : w
         );
         setWebhookStatuses(updatedStatus);
+        toast.success(`${webhookName} webhook test successful`);
+      } else {
+        toast.error(`Failed to test ${webhookName} webhook`);
       }
     } catch (error) {
       console.error('Error testing webhook:', error);
+      toast.error('Error testing webhook');
     } finally {
       setTestingWebhook(null);
     }
@@ -189,10 +204,13 @@ const AdminSettings: React.FC = () => {
 
       if (response.ok) {
         setShowClearDataConfirm(false);
-        alert('All data cleared successfully');
+        toast.success('All data cleared successfully');
+      } else {
+        toast.error('Failed to clear data');
       }
     } catch (error) {
       console.error('Error clearing data:', error);
+      toast.error('Error clearing data');
     }
   };
 
@@ -201,7 +219,7 @@ const AdminSettings: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="font-sora text-3xl font-bold mb-2">Admin Settings</h1>
+          <h1 className="font-sora text-xl sm:text-3xl font-bold mb-2">Admin Settings</h1>
           <p className="text-gray-400">Manage system configuration and security</p>
         </div>
 

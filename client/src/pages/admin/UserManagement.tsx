@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Users,
   Plus,
@@ -96,7 +97,7 @@ const UserManagement: React.FC = () => {
 
   const handleAddMember = async () => {
     if (!newMember.name || !newMember.role || !newMember.email) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -120,9 +121,13 @@ const UserManagement: React.FC = () => {
         setMembers([...members, created]);
         setNewMember({ name: '', role: '', email: '', department: 'Engineering', skills: '' });
         setShowModal(false);
+        toast.success('User created successfully');
+      } else {
+        toast.error('Failed to create user');
       }
     } catch (error) {
       console.error('Error adding member:', error);
+      toast.error('Error creating user');
     }
   };
 
@@ -178,16 +183,16 @@ const UserManagement: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="font-sora text-3xl font-bold mb-2">User Management</h1>
+            <h1 className="font-sora text-xl sm:text-3xl font-bold mb-2">User Management</h1>
             <p className="text-gray-400">Manage team members and departments</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
+            className="w-full sm:w-auto flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
           >
             <Plus className="w-4 h-4" />
             Add Member

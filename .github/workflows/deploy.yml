@@ -91,17 +91,19 @@ jobs:
             ENVEOF
             sed -i 's/^            //' .env.production
 
-            # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
-
-            # Update docker-compose with new image
+            # Rebuild and start containers with latest code
+            docker-compose build --no-cache
             docker-compose up -d
 
-            # Wait for health check
-            sleep 10
+            # Wait for container to start and pass health check
+            sleep 15
 
-            # Verify deployment
+            # Verify deployment - check both static and API
             curl -f http://localhost:3000/ || exit 1
+            curl -f http://localhost:3000/api/health || exit 1
+
+            # Clean up old images to save disk space
+            docker image prune -f
 
             echo "✅ Deployment successful!"
             echo "🌐 Website available at: https://sentinelintegratedgroup.com"

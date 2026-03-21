@@ -83,6 +83,7 @@ jobs:
             cat > .env.production << 'ENVEOF'
             NODE_ENV=production
             PORT=3000
+            ADMIN_PIN=${{ secrets.ADMIN_PIN }}
             SLACK_ALERTS_WEBHOOK=${{ secrets.SLACK_ALERTS_WEBHOOK }}
             SLACK_FORMS_WEBHOOK=${{ secrets.SLACK_FORMS_WEBHOOK }}
             SLACK_ACTIVITY_WEBHOOK=${{ secrets.SLACK_ACTIVITY_WEBHOOK }}

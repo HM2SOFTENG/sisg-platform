@@ -59,4 +59,20 @@ function getItem<T = any>(collection: string, id: string): T | null {
   return items.find((item: any) => item.id === id) || null;
 }
 
-export const storage = { read: readCollection, write: writeCollection, add: addItem, update: updateItem, delete: deleteItem, get: getItem };
+// Named export matching what the routes expect
+const storage = {
+  read: readCollection,
+  write: writeCollection,
+  add: addItem,
+  update: updateItem,
+  delete: deleteItem,
+  get: getItem,
+  // Aliases used by admin routes
+  getCollection: readCollection,
+  addToCollection: addItem,
+  updateInCollection: updateItem,
+  deleteFromCollection: deleteItem,
+};
+
+export { storage };
+export default storage;

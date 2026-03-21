@@ -5,8 +5,8 @@ import {
   logoutHandler,
   verifyHandler,
 } from "../middleware/auth.js";
-import storage from "../services/storage.js";
-import slack from "../services/slack.js";
+import { storage } from "../services/storage.js";
+import { slack } from "../services/slack.js";
 
 const router: Router = express.Router();
 
@@ -14,16 +14,16 @@ const router: Router = express.Router();
 // PUBLIC ROUTES (No Authentication Required)
 // ============================================================================
 
-router.post("/login", loginHandler);
-router.post("/logout", logoutHandler);
-router.get("/verify", verifyHandler);
+router.post("/api/admin/login", loginHandler);
+router.post("/api/admin/logout", logoutHandler);
+router.get("/api/admin/verify", verifyHandler);
 
 // ============================================================================
 // PROTECTED ROUTES (Admin Auth Required)
 // ============================================================================
 
 // ---- STATS ENDPOINT ----
-router.get("/stats", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/stats", adminAuth, async (req: Request, res: Response) => {
   try {
     const submissions = storage.getCollection("submissions");
     const contracts = storage.getCollection("contracts");
@@ -112,7 +112,7 @@ router.get(
 // SUBMISSIONS CRUD
 // ============================================================================
 
-router.get("/submissions", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/submissions", adminAuth, async (req: Request, res: Response) => {
   try {
     const submissions = storage.getCollection("submissions") || [];
     res.json(submissions);
@@ -121,7 +121,7 @@ router.get("/submissions", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/submissions", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/submissions", adminAuth, async (req: Request, res: Response) => {
   try {
     const submission = {
       id: Date.now().toString(),
@@ -191,7 +191,7 @@ router.delete(
 // CONTRACTS CRUD
 // ============================================================================
 
-router.get("/contracts", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/contracts", adminAuth, async (req: Request, res: Response) => {
   try {
     const contracts = storage.getCollection("contracts") || [];
     res.json(contracts);
@@ -200,7 +200,7 @@ router.get("/contracts", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/contracts", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/contracts", adminAuth, async (req: Request, res: Response) => {
   try {
     const contract = {
       id: Date.now().toString(),
@@ -360,7 +360,7 @@ Witness (if applicable)               Date
 // TEAM CRUD
 // ============================================================================
 
-router.get("/team", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/team", adminAuth, async (req: Request, res: Response) => {
   try {
     const team = storage.getCollection("team") || [];
     res.json(team);
@@ -369,7 +369,7 @@ router.get("/team", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/team", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/team", adminAuth, async (req: Request, res: Response) => {
   try {
     const member = {
       id: Date.now().toString(),
@@ -389,7 +389,7 @@ router.post("/team", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/team/:id", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/team/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const team = storage.getCollection("team") || [];
     const member = team.find((m: any) => m.id === req.params.id);
@@ -402,7 +402,7 @@ router.get("/team/:id", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.put("/team/:id", adminAuth, async (req: Request, res: Response) => {
+router.put("/api/admin/team/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const updated = storage.updateInCollection("team", req.params.id, {
       ...req.body,
@@ -417,7 +417,7 @@ router.put("/team/:id", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/team/:id", adminAuth, async (req: Request, res: Response) => {
+router.delete("/api/admin/team/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const success = storage.deleteFromCollection("team", req.params.id);
     if (!success) {
@@ -433,7 +433,7 @@ router.delete("/team/:id", adminAuth, async (req: Request, res: Response) => {
 // PROJECTS CRUD
 // ============================================================================
 
-router.get("/projects", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/projects", adminAuth, async (req: Request, res: Response) => {
   try {
     const projects = storage.getCollection("projects") || [];
     res.json(projects);
@@ -442,7 +442,7 @@ router.get("/projects", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/projects", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/projects", adminAuth, async (req: Request, res: Response) => {
   try {
     const project = {
       id: Date.now().toString(),
@@ -456,7 +456,7 @@ router.post("/projects", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/projects/:id", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/projects/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const projects = storage.getCollection("projects") || [];
     const project = projects.find((p: any) => p.id === req.params.id);
@@ -469,7 +469,7 @@ router.get("/projects/:id", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.put("/projects/:id", adminAuth, async (req: Request, res: Response) => {
+router.put("/api/admin/projects/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const updated = storage.updateInCollection("projects", req.params.id, {
       ...req.body,
@@ -504,7 +504,7 @@ router.delete(
 // MARKETING CRUD
 // ============================================================================
 
-router.get("/marketing", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/marketing", adminAuth, async (req: Request, res: Response) => {
   try {
     const marketing = storage.getCollection("marketing") || [];
     res.json(marketing);
@@ -513,7 +513,7 @@ router.get("/marketing", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/marketing", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/marketing", adminAuth, async (req: Request, res: Response) => {
   try {
     const item = {
       id: Date.now().toString(),
@@ -583,7 +583,7 @@ router.delete(
 // PARTNERSHIPS CRUD
 // ============================================================================
 
-router.get("/partnerships", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/partnerships", adminAuth, async (req: Request, res: Response) => {
   try {
     const partnerships = storage.getCollection("partnerships") || [];
     res.json(partnerships);
@@ -672,7 +672,7 @@ router.delete(
 // CONTENT CRUD
 // ============================================================================
 
-router.get("/content", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/content", adminAuth, async (req: Request, res: Response) => {
   try {
     const content = storage.getCollection("content") || [];
     res.json(content);
@@ -681,7 +681,7 @@ router.get("/content", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/content", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/content", adminAuth, async (req: Request, res: Response) => {
   try {
     const item = {
       id: Date.now().toString(),
@@ -751,7 +751,7 @@ router.delete(
 // ACTIVITY CRUD
 // ============================================================================
 
-router.get("/activity", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/activity", adminAuth, async (req: Request, res: Response) => {
   try {
     let activity = storage.getCollection("activity") || [];
 
@@ -766,7 +766,7 @@ router.get("/activity", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/activity", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/activity", adminAuth, async (req: Request, res: Response) => {
   try {
     const item = {
       id: Date.now().toString(),

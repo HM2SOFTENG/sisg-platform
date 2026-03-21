@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+import DashboardLayout from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
 import { Copy, Loader } from "lucide-react";
 

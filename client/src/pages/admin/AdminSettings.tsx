@@ -11,7 +11,7 @@ import {
   Circle,
   Save,
 } from 'lucide-react';
-import DashboardLayout from '../../components/layout/DashboardLayout';
+import DashboardLayout from '@/components/DashboardLayout';
 
 interface SystemInfo {
   version: string;

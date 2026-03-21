@@ -11,7 +11,7 @@ import {
   CheckCircle,
   Circle,
 } from 'lucide-react';
-import DashboardLayout from '../../components/layout/DashboardLayout';
+import DashboardLayout from '@/components/DashboardLayout';
 
 interface TeamMember {
   id: string;

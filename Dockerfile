@@ -41,6 +41,9 @@ RUN pnpm install --no-frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/client/public ./client/public
 
+# Create data directory for persistent storage
+RUN mkdir -p /app/data
+
 # Expose port
 EXPOSE 3000
 

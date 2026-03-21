@@ -10,7 +10,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import DashboardLayout from '../../components/layout/DashboardLayout';
+import DashboardLayout from '@/components/DashboardLayout';
 
 interface ContentItem {
   id: string;

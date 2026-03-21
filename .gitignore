@@ -37,3 +37,6 @@ Thumbs.db
 
 # Development
 .turbo/
+
+# Admin data
+data/

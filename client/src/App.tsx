@@ -4,6 +4,8 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Public pages
 import Home from "./pages/Home";
@@ -13,17 +15,33 @@ import Careers from "./pages/Careers";
 import Contact from "./pages/Contact";
 import Partners from "./pages/Partners";
 import Pricing from "./pages/Pricing";
+import AdminLogin from "./pages/AdminLogin";
 
 // Dashboard pages
 import Dashboard from "./pages/Dashboard";
-import Projects from "./pages/Projects";
-import Team from "./pages/Team";
-import Finance from "./pages/Finance";
 import Analytics from "./pages/Analytics";
-import {
-  TimeTracking, KnowledgeBase, Reports, Admin,
-  SettingsPage, Tasks, CalendarPage
-} from "./pages/DashboardPlaceholders";
+import { Tasks, CalendarPage, TimeTracking, KnowledgeBase, Reports } from "./pages/DashboardPlaceholders";
+
+// Admin pages
+import FormSubmissions from "./pages/admin/FormSubmissions";
+import ContractBidding from "./pages/admin/ContractBidding";
+import ContractMonitoring from "./pages/admin/ContractMonitoring";
+import AIContractGen from "./pages/admin/AIContractGen";
+import ProjectManagement from "./pages/admin/ProjectManagement";
+import Financials from "./pages/admin/Financials";
+import MarketingDashboard from "./pages/admin/MarketingDashboard";
+import PartnershipAdmin from "./pages/admin/PartnershipAdmin";
+import ContentManagement from "./pages/admin/ContentManagement";
+import UserManagement from "./pages/admin/UserManagement";
+import AdminSettings from "./pages/admin/AdminSettings";
+
+function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <ProtectedRoute>
+      <Component />
+    </ProtectedRoute>
+  );
+}
 
 function Router() {
   return (
@@ -36,20 +54,27 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/partners" component={Partners} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/admin/login" component={AdminLogin} />
 
-      {/* Dashboard */}
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/dashboard/analytics" component={Analytics} />
-      <Route path="/dashboard/projects" component={Projects} />
-      <Route path="/dashboard/tasks" component={Tasks} />
-      <Route path="/dashboard/calendar" component={CalendarPage} />
-      <Route path="/dashboard/time" component={TimeTracking} />
-      <Route path="/dashboard/team" component={Team} />
-      <Route path="/dashboard/knowledge" component={KnowledgeBase} />
-      <Route path="/dashboard/finance" component={Finance} />
-      <Route path="/dashboard/reports" component={Reports} />
-      <Route path="/dashboard/admin" component={Admin} />
-      <Route path="/dashboard/settings" component={SettingsPage} />
+      {/* Protected Dashboard */}
+      <Route path="/dashboard">{() => <ProtectedDashboard component={Dashboard} />}</Route>
+      <Route path="/dashboard/analytics">{() => <ProtectedDashboard component={Analytics} />}</Route>
+      <Route path="/dashboard/submissions">{() => <ProtectedDashboard component={FormSubmissions} />}</Route>
+      <Route path="/dashboard/contracts">{() => <ProtectedDashboard component={ContractBidding} />}</Route>
+      <Route path="/dashboard/monitoring">{() => <ProtectedDashboard component={ContractMonitoring} />}</Route>
+      <Route path="/dashboard/contract-gen">{() => <ProtectedDashboard component={AIContractGen} />}</Route>
+      <Route path="/dashboard/projects">{() => <ProtectedDashboard component={ProjectManagement} />}</Route>
+      <Route path="/dashboard/team">{() => <ProtectedDashboard component={UserManagement} />}</Route>
+      <Route path="/dashboard/finance">{() => <ProtectedDashboard component={Financials} />}</Route>
+      <Route path="/dashboard/marketing">{() => <ProtectedDashboard component={MarketingDashboard} />}</Route>
+      <Route path="/dashboard/partnerships">{() => <ProtectedDashboard component={PartnershipAdmin} />}</Route>
+      <Route path="/dashboard/content">{() => <ProtectedDashboard component={ContentManagement} />}</Route>
+      <Route path="/dashboard/tasks">{() => <ProtectedDashboard component={Tasks} />}</Route>
+      <Route path="/dashboard/calendar">{() => <ProtectedDashboard component={CalendarPage} />}</Route>
+      <Route path="/dashboard/time">{() => <ProtectedDashboard component={TimeTracking} />}</Route>
+      <Route path="/dashboard/knowledge">{() => <ProtectedDashboard component={KnowledgeBase} />}</Route>
+      <Route path="/dashboard/reports">{() => <ProtectedDashboard component={Reports} />}</Route>
+      <Route path="/dashboard/settings">{() => <ProtectedDashboard component={AdminSettings} />}</Route>
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
@@ -61,10 +86,12 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

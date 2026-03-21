@@ -7,22 +7,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
   CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
-  Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut
+  Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut,
+  Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool
 } from "lucide-react";
 
-const navItems = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard, color: "#0066ff" },
-  { label: "Projects", href: "/dashboard/projects", icon: FolderKanban, color: "#8b5cf6" },
-  { label: "Team", href: "/dashboard/team", icon: Users, color: "#00d4ff" },
-  { label: "Finance", href: "/dashboard/finance", icon: DollarSign, color: "#00e5a0" },
-  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, color: "#ffb800" },
-  { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare, color: "#ff6b35" },
-  { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, color: "#0066ff" },
-  { label: "Time Tracking", href: "/dashboard/time", icon: Clock, color: "#00d4ff" },
-  { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#8b5cf6" },
-  { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },
-  { label: "Admin", href: "/dashboard/admin", icon: Shield, color: "#ff3b3b" },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, color: "#6b7280" },
+type NavSection = { section: string; items: { label: string; href: string; icon: any; color: string }[] };
+
+const navSections: NavSection[] = [
+  { section: "Overview", items: [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, color: "#0066ff" },
+    { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, color: "#ffb800" },
+    { label: "Submissions", href: "/dashboard/submissions", icon: Inbox, color: "#00d4ff" },
+  ]},
+  { section: "Contracts", items: [
+    { label: "Bidding", href: "/dashboard/contracts", icon: FileSignature, color: "#8b5cf6" },
+    { label: "Monitoring", href: "/dashboard/monitoring", icon: Activity, color: "#00e5a0" },
+    { label: "AI Generator", href: "/dashboard/contract-gen", icon: Brain, color: "#0066ff" },
+  ]},
+  { section: "Operations", items: [
+    { label: "Projects", href: "/dashboard/projects", icon: FolderKanban, color: "#8b5cf6" },
+    { label: "Team", href: "/dashboard/team", icon: Users, color: "#00d4ff" },
+    { label: "Finance", href: "/dashboard/finance", icon: DollarSign, color: "#00e5a0" },
+    { label: "Marketing", href: "/dashboard/marketing", icon: Megaphone, color: "#ff6b35" },
+    { label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake, color: "#ffb800" },
+  ]},
+  { section: "Content", items: [
+    { label: "Pages & Posts", href: "/dashboard/content", icon: PenTool, color: "#8b5cf6" },
+    { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#00d4ff" },
+  ]},
+  { section: "System", items: [
+    { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings, color: "#6b7280" },
+  ]},
 ];
 
 interface DashboardLayoutProps {
@@ -50,31 +66,40 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {navItems.map((item) => {
-          const active = location === item.href;
-          return (
-            <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>
-              <div
-                className={`flex items-center gap-3 px-3 py-2.5 transition-all group cursor-pointer ${
-                  active ? "bg-[#0066ff]/12 border-l-2 border-[#0066ff]" : "border-l-2 border-transparent hover:bg-white/4"
-                }`}
-              >
-                <item.icon
-                  className="w-4 h-4 flex-shrink-0 transition-colors"
-                  style={{ color: active ? item.color : "rgba(107,114,128,1)" }}
-                />
-                <span
-                  className={`text-sm transition-colors ${active ? "text-white font-medium" : "text-gray-500 group-hover:text-gray-300"}`}
-                  style={{ fontFamily: "DM Sans, sans-serif" }}
-                >
-                  {item.label}
-                </span>
-                {active && <ChevronRight className="w-3 h-3 ml-auto" style={{ color: item.color }} />}
-              </div>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-3">
+        {navSections.map((section) => (
+          <div key={section.section}>
+            <div className="px-3 mb-1">
+              <span className="text-[9px] font-mono text-gray-600 uppercase tracking-[0.2em]">{section.section}</span>
+            </div>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const active = location === item.href;
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>
+                    <div
+                      className={`flex items-center gap-3 px-3 py-2 transition-all group cursor-pointer ${
+                        active ? "bg-[#0066ff]/12 border-l-2 border-[#0066ff]" : "border-l-2 border-transparent hover:bg-white/4"
+                      }`}
+                    >
+                      <item.icon
+                        className="w-3.5 h-3.5 flex-shrink-0 transition-colors"
+                        style={{ color: active ? item.color : "rgba(107,114,128,1)" }}
+                      />
+                      <span
+                        className={`text-[13px] transition-colors ${active ? "text-white font-medium" : "text-gray-500 group-hover:text-gray-300"}`}
+                        style={{ fontFamily: "DM Sans, sans-serif" }}
+                      >
+                        {item.label}
+                      </span>
+                      {active && <ChevronRight className="w-3 h-3 ml-auto" style={{ color: item.color }} />}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

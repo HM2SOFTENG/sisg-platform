@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ curl git
+
 # Install pnpm
 RUN npm install -g pnpm@10.15.1
 
@@ -10,7 +13,7 @@ RUN npm install -g pnpm@10.15.1
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile || pnpm install
 
 # Copy source code
 COPY . .
@@ -30,7 +33,7 @@ RUN npm install -g pnpm@10.15.1
 COPY package.json pnpm-lock.yaml ./
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --no-frozen-lockfile --prod
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist

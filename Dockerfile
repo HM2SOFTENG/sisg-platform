@@ -48,8 +48,8 @@ RUN mkdir -p /app/data
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {let d=''; r.on('data',c=>d+=c); r.on('end',()=>{try{const j=JSON.parse(d);if(j.status!=='ok')process.exit(1);}catch{process.exit(1);}});}).on('error',()=>process.exit(1))"
 
 # Start server
 CMD ["node", "dist/index.js"]

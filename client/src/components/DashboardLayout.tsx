@@ -8,8 +8,10 @@ import {
   LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
   CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
   Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut,
-  Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool, Bot
+  Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool, Bot,
+  Sun, Moon, Palette
 } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
 
 type NavSection = { section: string; items: { label: string; href: string; icon: any; color: string }[] };
 
@@ -50,6 +52,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, cycleTheme } = useTheme();
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -104,7 +107,25 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/8">
+      <div className="p-4 border-t border-white/8 space-y-3">
+        {/* Theme Toggle */}
+        <motion.button
+          onClick={cycleTheme}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full flex flex-col items-center gap-2 px-3 py-2.5 hover:bg-white/4 transition-all rounded-md"
+        >
+          <div className="w-7 h-7 flex items-center justify-center">
+            {theme === "light" && <Sun className="w-4 h-4 text-yellow-500" />}
+            {theme === "dark" && <Moon className="w-4 h-4 text-indigo-400" />}
+            {theme === "sentinel" && <Palette className="w-4 h-4 text-blue-500" />}
+          </div>
+          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-wider">
+            {theme === "sentinel" ? "Sentinel" : theme === "light" ? "Light" : "Dark"}
+          </span>
+        </motion.button>
+
+        {/* User Info */}
         <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/4 transition-all cursor-pointer">
           <div className="w-7 h-7 bg-[#0066ff]/20 flex items-center justify-center flex-shrink-0">
             <Terminal className="w-3.5 h-3.5 text-[#0066ff]" />

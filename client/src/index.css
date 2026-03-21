@@ -56,7 +56,7 @@
   /* SHARP — radius is zero everywhere */
   --radius: 0px;
 
-  /* Sentinel Sharp Color System */
+  /* Sentinel Sharp Color System (default) */
   --background: oklch(0.07 0.025 255);
   --foreground: oklch(0.95 0.008 240);
   --card: oklch(0.1 0.025 255);
@@ -113,6 +113,126 @@
 
   /* Tech grid spacing */
   --grid-unit: 4px;
+}
+
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+.light {
+  /* Light theme background and foreground */
+  --background: #ffffff;
+  --foreground: #111827;
+  --card: #f3f4f6;
+  --card-foreground: #111827;
+  --popover: #f9fafb;
+  --popover-foreground: #111827;
+
+  /* Electric Blue Primary */
+  --primary: #0066ff;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e5e7eb;
+  --secondary-foreground: #374151;
+
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+
+  --accent: #f0f4f8;
+  --accent-foreground: #1e293b;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: #0066ff;
+
+  /* Chart Colors */
+  --chart-1: #3b82f6;
+  --chart-2: #0066ff;
+  --chart-3: #06b6d4;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+
+  /* Sidebar */
+  --sidebar: #f9fafb;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #0066ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e5e7eb;
+  --sidebar-accent-foreground: #111827;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #0066ff;
+
+  /* SISG Brand Tokens (light variants) */
+  --sisg-blue: #0066ff;
+  --sisg-cyan: #0891b2;
+  --sisg-emerald: #059669;
+  --sisg-amber: #d97706;
+  --sisg-red: #dc2626;
+  --sisg-navy: #f3f4f6;
+  --sisg-glass: rgba(0, 0, 0, 0.02);
+  --sisg-glass-border: rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+.dark {
+  /* Dark theme background and foreground */
+  --background: #0b0f1a;
+  --foreground: #ffffff;
+  --card: #1a212f;
+  --card-foreground: #ffffff;
+  --popover: #151b2b;
+  --popover-foreground: #ffffff;
+
+  /* Electric Blue Primary */
+  --primary: #0066ff;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #cbd5e1;
+
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+
+  --accent: #1e293b;
+  --accent-foreground: #f1f5f9;
+
+  --destructive: #f87171;
+  --destructive-foreground: #0b0f1a;
+
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #0066ff;
+
+  /* Chart Colors */
+  --chart-1: #60a5fa;
+  --chart-2: #0066ff;
+  --chart-3: #06b6d4;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+
+  /* Sidebar */
+  --sidebar: #151b2b;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #0066ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #0066ff;
+
+  /* SISG Brand Tokens */
+  --sisg-blue: #0066ff;
+  --sisg-cyan: #00d4ff;
+  --sisg-emerald: #00e5a0;
+  --sisg-amber: #ffb800;
+  --sisg-red: #ff6b35;
+  --sisg-navy: #0b0f1a;
+  --sisg-glass: rgba(255, 255, 255, 0.04);
+  --sisg-glass-border: rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================================

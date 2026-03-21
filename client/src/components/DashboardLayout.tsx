@@ -1,0 +1,174 @@
+/* DashboardLayout — Sentinel Sharp v2
+   Design: Sharp sidebar, mobile drawer, tech-forward dark UI
+*/
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
+  CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
+  Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut
+} from "lucide-react";
+
+const navItems = [
+  { label: "Overview", href: "/dashboard", icon: LayoutDashboard, color: "#0066ff" },
+  { label: "Projects", href: "/dashboard/projects", icon: FolderKanban, color: "#8b5cf6" },
+  { label: "Team", href: "/dashboard/team", icon: Users, color: "#00d4ff" },
+  { label: "Finance", href: "/dashboard/finance", icon: DollarSign, color: "#00e5a0" },
+  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, color: "#ffb800" },
+  { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare, color: "#ff6b35" },
+  { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, color: "#0066ff" },
+  { label: "Time Tracking", href: "/dashboard/time", icon: Clock, color: "#00d4ff" },
+  { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#8b5cf6" },
+  { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },
+  { label: "Admin", href: "/dashboard/admin", icon: Shield, color: "#ff3b3b" },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, color: "#6b7280" },
+];
+
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  title?: string;
+}
+
+export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
+  const [location] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="p-5 border-b border-white/8">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-[#0066ff] flex items-center justify-center flex-shrink-0">
+            <Shield className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <div className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>SISG</div>
+            <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Enterprise</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+        {navItems.map((item) => {
+          const active = location === item.href;
+          return (
+            <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>
+              <div
+                className={`flex items-center gap-3 px-3 py-2.5 transition-all group cursor-pointer ${
+                  active ? "bg-[#0066ff]/12 border-l-2 border-[#0066ff]" : "border-l-2 border-transparent hover:bg-white/4"
+                }`}
+              >
+                <item.icon
+                  className="w-4 h-4 flex-shrink-0 transition-colors"
+                  style={{ color: active ? item.color : "rgba(107,114,128,1)" }}
+                />
+                <span
+                  className={`text-sm transition-colors ${active ? "text-white font-medium" : "text-gray-500 group-hover:text-gray-300"}`}
+                  style={{ fontFamily: "DM Sans, sans-serif" }}
+                >
+                  {item.label}
+                </span>
+                {active && <ChevronRight className="w-3 h-3 ml-auto" style={{ color: item.color }} />}
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-white/8">
+        <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/4 transition-all cursor-pointer">
+          <div className="w-7 h-7 bg-[#0066ff]/20 flex items-center justify-center flex-shrink-0">
+            <Terminal className="w-3.5 h-3.5 text-[#0066ff]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white text-xs font-medium truncate">Admin User</div>
+            <div className="text-gray-600 text-[10px] font-mono truncate">admin@sisg.gov</div>
+          </div>
+          <LogOut className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[oklch(0.07_0.025_255)] flex overflow-x-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-56 xl:w-60 bg-[oklch(0.085_0.025_255)] border-r border-white/8 flex-shrink-0 fixed left-0 top-0 h-full z-30">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: -240 }}
+              animate={{ x: 0 }}
+              exit={{ x: -240 }}
+              transition={{ type: "tween", duration: 0.25 }}
+              className="fixed left-0 top-0 h-full w-60 bg-[oklch(0.085_0.025_255)] border-r border-white/8 z-50 lg:hidden"
+            >
+              <div className="absolute top-4 right-4">
+                <button onClick={() => setMobileOpen(false)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-56 xl:ml-60">
+        {/* Top Bar */}
+        <header className="sticky top-0 z-20 bg-[oklch(0.085_0.025_255)]/90 backdrop-blur-sm border-b border-white/8 px-4 sm:px-6 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 transition-colors"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+
+          <div className="flex-1 flex items-center gap-3">
+            <div className="relative hidden sm:flex items-center max-w-xs w-full">
+              <Search className="absolute left-3 w-3.5 h-3.5 text-gray-600" />
+              <input
+                className="w-full bg-[oklch(0.07_0.025_255)] border border-white/8 text-gray-400 text-xs pl-9 pr-3 py-2 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
+                placeholder="Search..."
+              />
+            </div>
+            {title && (
+              <div className="text-white font-medium text-sm sm:hidden" style={{ fontFamily: "Sora, sans-serif" }}>{title}</div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/8 transition-colors relative">
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#0066ff]" />
+            </button>
+            <div className="w-8 h-8 bg-[#0066ff]/20 border border-[#0066ff]/30 flex items-center justify-center">
+              <span className="text-[#0066ff] text-xs font-bold font-mono">AU</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 p-4 sm:p-6 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

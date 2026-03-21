@@ -106,10 +106,13 @@ export const clawbot = {
       return live;
     }
 
-    // Fallback: return last cached status
+    // Fallback: return last cached status (from heartbeats)
     const cached = storage.read("bot_status");
     if (cached.length > 0) {
-      return { ...cached[0], online: false };
+      // Consider bot online if heartbeat received within last 90 seconds
+      const lastBeat = new Date(cached[0].lastHeartbeat).getTime();
+      const isRecent = (Date.now() - lastBeat) < 90000;
+      return { ...cached[0], online: isRecent };
     }
 
     return {

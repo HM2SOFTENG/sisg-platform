@@ -61,7 +61,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
   const handleLogout = () => {
     logout();
     toast.success("Logged out successfully");
-    setLocation("/login");
+    setLocation("/admin/login");
   };
 
   const handleThemeChange = () => {

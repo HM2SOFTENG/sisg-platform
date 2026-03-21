@@ -34,6 +34,7 @@ import PartnershipAdmin from "./pages/admin/PartnershipAdmin";
 import ContentManagement from "./pages/admin/ContentManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import AdminSettings from "./pages/admin/AdminSettings";
+import ClawBotCenter from "./pages/admin/ClawBotCenter";
 
 function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/dashboard/time">{() => <ProtectedDashboard component={TimeTracking} />}</Route>
       <Route path="/dashboard/knowledge">{() => <ProtectedDashboard component={KnowledgeBase} />}</Route>
       <Route path="/dashboard/reports">{() => <ProtectedDashboard component={Reports} />}</Route>
+      <Route path="/dashboard/clawbot">{() => <ProtectedDashboard component={ClawBotCenter} />}</Route>
       <Route path="/dashboard/settings">{() => <ProtectedDashboard component={AdminSettings} />}</Route>
 
       <Route path="/404" component={NotFound} />

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
   CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
   Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut,
-  Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool
+  Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool, Bot
 } from "lucide-react";
 
 type NavSection = { section: string; items: { label: string; href: string; icon: any; color: string }[] };
@@ -36,6 +36,7 @@ const navSections: NavSection[] = [
     { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#00d4ff" },
   ]},
   { section: "System", items: [
+    { label: "ClawBot", href: "/dashboard/clawbot", icon: Bot, color: "#8b5cf6" },
     { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },
     { label: "Settings", href: "/dashboard/settings", icon: Settings, color: "#6b7280" },
   ]},

@@ -88,6 +88,8 @@ jobs:
             SLACK_FORMS_WEBHOOK=${{ secrets.SLACK_FORMS_WEBHOOK }}
             SLACK_ACTIVITY_WEBHOOK=${{ secrets.SLACK_ACTIVITY_WEBHOOK }}
             SLACK_DEPLOYMENTS_WEBHOOK=${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK }}
+            CLAWBOT_URL=${{ secrets.CLAWBOT_URL }}
+            CLAWBOT_API_KEY=${{ secrets.CLAWBOT_API_KEY }}
             ENVEOF
             sed -i 's/^            //' .env.production
 

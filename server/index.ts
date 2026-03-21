@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { slack } from "./services/slack.js";
 import adminRouter from "./routes/admin.js";
+import clawbotRouter from "./routes/clawbot.js";
 import { storage } from "./services/storage.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -115,6 +116,7 @@ async function startServer() {
 
   // Mount admin API routes
   app.use(adminRouter);
+  app.use(clawbotRouter);
 
   // Seed initial data if collections are empty
   const seedIfEmpty = (collection: string, data: any[]) => {

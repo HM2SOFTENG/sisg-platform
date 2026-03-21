@@ -1,0 +1,13 @@
+{
+  "name": "clawbot-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ClawBot agent service for Kamrui mini P2 — reports to SISG platform",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "dev": "node --watch agent.js"
+  },
+  "author": "SISG",
+  "license": "MIT"
+}

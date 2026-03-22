@@ -563,7 +563,11 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
     // Fetch CVEs from NVD API
     const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=10&pubStartDate=${pubStartDate}T00:00:00&pubEndDate=${pubEndDate}T23:59:59&cvssV3Severity=CRITICAL,HIGH`;
 
-    const response = await fetchWithTimeout(url, {}, 8000);
+    const nvdHeaders: Record<string, string> = {};
+    if (process.env.NVD_API_KEY) {
+      nvdHeaders["apiKey"] = process.env.NVD_API_KEY;
+    }
+    const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 8000);
 
     if (response?.ok) {
       const data = await response.json() as any;

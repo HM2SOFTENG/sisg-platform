@@ -91,6 +91,9 @@ jobs:
             SLACK_DEPLOYMENTS_WEBHOOK=${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK }}
             CLAWBOT_URL=${{ secrets.CLAWBOT_URL }}
             CLAWBOT_API_KEY=${{ secrets.CLAWBOT_API_KEY }}
+            GITHUB_TOKEN=${{ secrets.GH_AGENT_TOKEN }}
+            SAM_GOV_API_KEY=${{ secrets.SAM_GOV_API_KEY }}
+            NVD_API_KEY=${{ secrets.NVD_API_KEY }}
             ENVEOF
             sed -i 's/^            //' .env.production
 

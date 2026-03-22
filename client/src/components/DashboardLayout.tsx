@@ -149,8 +149,8 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             <Terminal className="w-3.5 h-3.5 text-[#0066ff]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[var(--foreground)] text-xs font-medium truncate">Admin User</div>
-            <div className="text-[var(--muted-foreground)] text-[10px] font-mono truncate">admin@sisg.gov</div>
+            <div className="text-[var(--foreground)] text-xs font-medium truncate">Brian Smith</div>
+            <div className="text-[var(--muted-foreground)] text-[10px] font-mono truncate">brian@sisg.io</div>
           </div>
           <button
             onClick={handleLogout}
@@ -230,7 +230,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#0066ff]" />
             </button>
             <div className="w-8 h-8 bg-[#0066ff]/20 border border-[#0066ff]/30 flex items-center justify-center">
-              <span className="text-[#0066ff] text-xs font-bold font-mono">AU</span>
+              <span className="text-[#0066ff] text-xs font-bold font-mono">BS</span>
             </div>
           </div>
         </header>

@@ -475,7 +475,7 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const highValue = scored.filter((s: any) => s._score >= 30);
     const medValue = scored.filter((s: any) => s._score >= 15 && s._score < 30);
 
-    // Persist opportunities to storage for proposals agent
+    // Persist opportunities to storage for proposals agent — extract ALL available fields
     const storedOpps = scored.slice(0, 50).map((opp: any) => ({
       id: opp.noticeId,
       noticeId: opp.noticeId,
@@ -484,18 +484,33 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
       type: opp.type || opp.baseType || "Unknown",
       postedDate: opp.postedDate || "",
       responseDeadline: opp.responseDeadLine || null,
+      archiveDate: opp.archiveDate || null,
       naicsCode: opp.naicsCode || "",
+      classificationCode: opp.classificationCode || "",
       setAside: opp.typeOfSetAside || "",
       setAsideDescription: opp.typeOfSetAsideDescription || "",
       organization: opp.fullParentPathName || opp.department || "",
+      department: opp.department || opp.fullParentPathName?.split(".")?.[0] || "",
+      subTier: opp.subtierAgency || opp.fullParentPathName?.split(".")?.slice(1).join(".") || "",
+      office: opp.office || "",
       placeOfPerformance: opp.placeOfPerformance?.state?.code || "",
+      placeOfPerformanceCity: opp.placeOfPerformance?.city?.name || "",
+      placeOfPerformanceCountry: opp.placeOfPerformance?.country?.code || "US",
       awardAmount: opp.award?.amount || null,
+      awardDate: opp.award?.date || null,
+      awardNumber: opp.award?.number || null,
+      awardee: opp.award?.awardee?.name || null,
       score: opp._score,
       reasons: opp._reasons,
       description: opp.description || "",
+      additionalInfo: opp.additionalInfoLink || null,
       uiLink: opp.uiLink || "",
       pointOfContact: opp.pointOfContact?.[0] || null,
+      additionalContacts: opp.pointOfContact?.slice(1) || [],
       active: opp.active,
+      organizationType: opp.organizationType || "",
+      officeAddress: opp.officeAddress || null,
+      resourceLinks: opp.resourceLinks || [],
       fetchedAt: now.toISOString(),
     }));
     storage.write("sam_opportunities", storedOpps);

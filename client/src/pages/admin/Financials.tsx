@@ -42,60 +42,10 @@ interface KPI {
   isPositive: boolean;
 }
 
-const mockRevenueData = [
-  { month: "Oct", revenue: 1200000 },
-  { month: "Nov", revenue: 1450000 },
-  { month: "Dec", revenue: 1850000 },
-  { month: "Jan", revenue: 2100000 },
-  { month: "Feb", revenue: 2750000 },
-  { month: "Mar", revenue: 3200000 },
-];
-
-const mockServiceLineData = [
-  { name: "Cybersecurity", value: 1200000 },
-  { name: "Cloud", value: 950000 },
-  { name: "Software", value: 780000 },
-  { name: "Consulting", value: 620000 },
-];
-
-const mockExpenseData = [
-  { category: "Personnel", amount: 1200000, percentage: 45 },
-  { category: "Infrastructure", amount: 480000, percentage: 18 },
-  { category: "Marketing", amount: 320000, percentage: 12 },
-  { category: "Operations", amount: 240000, percentage: 9 },
-  { category: "R&D", amount: 320000, percentage: 12 },
-];
-
-const mockContractData = [
-  {
-    id: 1,
-    name: "Acme Corp Security",
-    value: 150000,
-    status: "active",
-    endDate: "2026-12-31",
-  },
-  {
-    id: 2,
-    name: "TechFlow Cloud Migration",
-    value: 250000,
-    status: "active",
-    endDate: "2026-09-30",
-  },
-  {
-    id: 3,
-    name: "DataSync Consulting",
-    value: 75000,
-    status: "completed",
-    endDate: "2026-03-15",
-  },
-  {
-    id: 4,
-    name: "Global Industries Platform",
-    value: 320000,
-    status: "active",
-    endDate: "2027-06-30",
-  },
-];
+interface RevenueEntry { month: string; revenue: number }
+interface ServiceLineEntry { name: string; value: number }
+interface ExpenseEntry { category: string; amount: number; percentage: number }
+interface ContractEntry { id: number; name: string; value: number; status: string; endDate: string }
 
 const COLORS = ["#0066ff", "#00d4ff", "#00e5a0", "#ffb800", "#ff3b3b"];
 
@@ -103,10 +53,36 @@ export default function Financials() {
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revenueData, setRevenueData] = useState<RevenueEntry[]>([]);
+  const [serviceLineData, setServiceLineData] = useState<ServiceLineEntry[]>([]);
+  const [expenseData, setExpenseData] = useState<ExpenseEntry[]>([]);
+  const [contractData, setContractData] = useState<ContractEntry[]>([]);
 
   useEffect(() => {
     fetchFinancialData();
+    fetchContracts();
   }, []);
+
+  const fetchContracts = async () => {
+    try {
+      const token = localStorage.getItem("sisg_admin_token");
+      const response = await fetch("/api/admin/contracts", {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setContractData(data.map((c: any, i: number) => ({
+          id: c.id || i + 1,
+          name: c.title || c.name || "Untitled",
+          value: c.value || 0,
+          status: c.status || "active",
+          endDate: c.endDate || "",
+        })));
+      }
+    } catch (error) {
+      console.error("Error fetching contracts:", error);
+    }
+  };
 
   const fetchFinancialData = async () => {
     setLoading(true);
@@ -123,27 +99,19 @@ export default function Financials() {
         const data = await response.json();
         setFinancialData(data);
         calculateKPIs(data);
+        if (data.revenueByMonth) setRevenueData(data.revenueByMonth);
+        if (data.serviceLines) setServiceLineData(data.serviceLines);
+        if (data.expenses) setExpenseData(data.expenses);
       } else {
-        // Use mock data if API fails
-        const mockData = {
-          totalRevenue: 10550000,
-          totalExpenses: 2660000,
-          netProfit: 7890000,
-          profitMargin: 74.8,
-        };
-        setFinancialData(mockData);
-        calculateKPIs(mockData);
+        // No data available — show empty state
+        setFinancialData({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, profitMargin: 0 });
+        calculateKPIs({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, profitMargin: 0 });
+        toast("Financial data unavailable", { description: "Connect your accounting integration to populate financial dashboards" });
       }
     } catch (error) {
       console.error("Error fetching financials:", error);
-      const mockData = {
-        totalRevenue: 10550000,
-        totalExpenses: 2660000,
-        netProfit: 7890000,
-        profitMargin: 74.8,
-      };
-      setFinancialData(mockData);
-      calculateKPIs(mockData);
+      setFinancialData({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, profitMargin: 0 });
+      calculateKPIs({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, profitMargin: 0 });
     } finally {
       setLoading(false);
     }
@@ -271,27 +239,37 @@ export default function Financials() {
             >
               Revenue Trend
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={mockRevenueData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#0066ff" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" stroke="#9ca3af" />
-                <YAxis stroke="#9ca3af" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#00d4ff"
-                  fillOpacity={1}
-                  fill="url(#colorRevenue)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {revenueData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={revenueData}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#0066ff" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="month" stroke="#9ca3af" />
+                  <YAxis stroke="#9ca3af" />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#00d4ff"
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="text-center">
+                  <TrendingUp className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No revenue data available</p>
+                  <p className="text-gray-600 text-xs mt-1">Data will populate once financial integrations are configured</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Service Line Revenue */}
@@ -302,15 +280,24 @@ export default function Financials() {
             >
               Revenue by Service Line
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockServiceLineData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis type="number" stroke="#9ca3af" />
-                <YAxis dataKey="name" type="category" stroke="#9ca3af" width={100} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#00d4ff" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {serviceLineData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={serviceLineData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis type="number" stroke="#9ca3af" />
+                  <YAxis dataKey="name" type="category" stroke="#9ca3af" width={100} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" fill="#00d4ff" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="text-center">
+                  <PieChartIcon className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No service line data available</p>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -329,27 +316,36 @@ export default function Financials() {
             >
               Expense Breakdown
             </h2>
-            <div className="space-y-4">
-              {mockExpenseData.map((expense, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-300">{expense.category}</p>
-                    <p className="text-sm font-semibold text-cyan-400">
-                      ${(expense.amount / 1000000).toFixed(2)}M
-                    </p>
+            {expenseData.length > 0 ? (
+              <div className="space-y-4">
+                {expenseData.map((expense, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-300">{expense.category}</p>
+                      <p className="text-sm font-semibold text-cyan-400">
+                        ${(expense.amount / 1000000).toFixed(2)}M
+                      </p>
+                    </div>
+                    <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${expense.percentage}%` }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="h-full bg-gradient-to-r from-orange-500 to-red-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">{expense.percentage}%</p>
                   </div>
-                  <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${expense.percentage}%` }}
-                      transition={{ duration: 0.5, delay: 0.1 }}
-                      className="h-full bg-gradient-to-r from-orange-500 to-red-500"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500">{expense.percentage}%</p>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[200px]">
+                <div className="text-center">
+                  <TrendingDown className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No expense data available</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Budget Summary */}
@@ -360,46 +356,48 @@ export default function Financials() {
             >
               Budget Summary
             </h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
-                    Actual Spend
-                  </p>
-                  <p className="text-sm font-semibold text-emerald-400">73.8%</p>
-                </div>
-                <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "73.8%" }}
-                    transition={{ duration: 0.5 }}
-                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+            {financialData && financialData.totalRevenue > 0 ? (
+              <div className="space-y-4">
                 <div>
-                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
-                    Budget
-                  </p>
-                  <p className="text-xl font-bold text-white mt-1">$3.6M</p>
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
+                      Actual Spend
+                    </p>
+                    <p className="text-sm font-semibold text-emerald-400">
+                      {financialData.totalExpenses > 0 ? `${((financialData.totalExpenses / financialData.totalRevenue) * 100).toFixed(1)}%` : "0%"}
+                    </p>
+                  </div>
+                  <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${financialData.totalExpenses > 0 ? ((financialData.totalExpenses / financialData.totalRevenue) * 100).toFixed(1) : 0}%` }}
+                      transition={{ duration: 0.5 }}
+                      className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
-                    Used
-                  </p>
-                  <p className="text-xl font-bold text-emerald-400 mt-1">$2.66M</p>
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+                  <div>
+                    <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Revenue</p>
+                    <p className="text-xl font-bold text-white mt-1">${(financialData.totalRevenue / 1000000).toFixed(1)}M</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Expenses</p>
+                    <p className="text-xl font-bold text-emerald-400 mt-1">${(financialData.totalExpenses / 1000000).toFixed(2)}M</p>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-gray-700">
+                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest mb-2">Net Profit</p>
+                  <p className="text-xl font-bold text-cyan-400">${(financialData.netProfit / 1000000).toFixed(2)}M</p>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-gray-700">
-                <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest mb-2">
-                  Available
-                </p>
-                <p className="text-xl font-bold text-cyan-400">$940K</p>
+            ) : (
+              <div className="text-center py-6">
+                <DollarSign className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">No budget data available</p>
+                <p className="text-gray-600 text-xs mt-1">Connect financial data source to populate</p>
               </div>
-            </div>
+            )}
           </div>
         </motion.div>
 
@@ -416,53 +414,42 @@ export default function Financials() {
           >
             Contract Revenue
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">
-                    Contract Name
-                  </th>
-                  <th className="text-right text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">
-                    Value
-                  </th>
-                  <th className="text-center text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">
-                    Status
-                  </th>
-                  <th className="text-right text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">
-                    End Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockContractData.map((contract) => (
-                  <tr
-                    key={contract.id}
-                    className="border-b border-gray-800 hover:bg-gray-800/30 transition"
-                  >
-                    <td className="py-3 text-white">{contract.name}</td>
-                    <td className="py-3 text-right font-semibold text-cyan-400">
-                      ${(contract.value / 1000).toFixed(0)}K
-                    </td>
-                    <td className="py-3 text-center">
-                      <span
-                        className={`text-xs px-2 py-1 rounded border ${
-                          contract.status === "active"
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                            : "bg-blue-500/10 text-blue-400 border-blue-500/30"
-                        }`}
-                      >
-                        {contract.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right text-gray-400">
-                      {new Date(contract.endDate).toLocaleDateString()}
-                    </td>
+          {contractData.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="text-left text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">Contract Name</th>
+                    <th className="text-right text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">Value</th>
+                    <th className="text-center text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">Status</th>
+                    <th className="text-right text-[10px] font-mono text-gray-600 uppercase tracking-widest py-3">End Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {contractData.map((contract) => (
+                    <tr key={contract.id} className="border-b border-gray-800 hover:bg-gray-800/30 transition">
+                      <td className="py-3 text-white">{contract.name}</td>
+                      <td className="py-3 text-right font-semibold text-cyan-400">
+                        {contract.value >= 1000000 ? `$${(contract.value / 1000000).toFixed(1)}M` : `$${(contract.value / 1000).toFixed(0)}K`}
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={`text-xs px-2 py-1 rounded border ${contract.status === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : contract.status === "bidding" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" : "bg-blue-500/10 text-blue-400 border-blue-500/30"}`}>
+                          {contract.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right text-gray-400">{contract.endDate ? new Date(contract.endDate).toLocaleDateString() : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <DollarSign className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No contracts in revenue tracking</p>
+              <p className="text-gray-600 text-xs mt-1">Add contracts via the Bidding Pipeline to track revenue</p>
+            </div>
+          )}
         </motion.div>
       </div>
     </DashboardLayout>

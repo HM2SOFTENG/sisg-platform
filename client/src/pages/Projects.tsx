@@ -1,18 +1,22 @@
 /* Projects Page — Sentinel Sharp v2 */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FolderKanban, Plus, Search, Filter, Calendar, Users, DollarSign, ArrowRight } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { toast } from "sonner";
 
-const projects = [
-  { id: 1, name: "DoD CMMC Level 2 Assessment", client: "Dept of Defense", status: "In Progress", priority: "Critical", budget: "$2.4M", team: 8, due: "Apr 15", progress: 65, color: "#0066ff" },
-  { id: 2, name: "VA Cloud Migration Phase 2", client: "Dept of Veterans Affairs", status: "In Progress", priority: "High", budget: "$5.8M", team: 14, due: "Jun 30", progress: 38, color: "#8b5cf6" },
-  { id: 3, name: "DHS Zero Trust Architecture", client: "Dept of Homeland Security", status: "Planning", priority: "High", budget: "$3.1M", team: 6, due: "Aug 1", progress: 12, color: "#00d4ff" },
-  { id: 4, name: "GSA IT Modernization", client: "General Services Admin", status: "Completed", priority: "Medium", budget: "$1.9M", team: 9, due: "Mar 1", progress: 100, color: "#00e5a0" },
-  { id: 5, name: "FBI Incident Response Retainer", client: "Federal Bureau of Investigation", status: "Active", priority: "Critical", budget: "$890K", team: 4, due: "Ongoing", progress: 80, color: "#ff3b3b" },
-  { id: 6, name: "USAF DevSecOps Pipeline", client: "US Air Force", status: "In Progress", priority: "High", budget: "$4.2M", team: 11, due: "Sep 15", progress: 22, color: "#ffb800" },
-];
+interface Project {
+  id: number;
+  name: string;
+  client: string;
+  status: string;
+  priority: string;
+  budget: string;
+  team: number;
+  due: string;
+  progress: number;
+  color: string;
+}
 
 const statusColors: Record<string, string> = {
   "In Progress": "#0066ff",
@@ -28,10 +32,47 @@ const priorityColors: Record<string, string> = {
   "Low": "#6b7280",
 };
 
+const projectColors = ["#0066ff", "#8b5cf6", "#00d4ff", "#00e5a0", "#ff3b3b", "#ffb800"];
+
 export default function Projects() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const statuses = ["All", "In Progress", "Planning", "Completed", "Active"];
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const token = localStorage.getItem("sisg_admin_token");
+      const response = await fetch("/api/admin/projects", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mapped = data.map((p: any, i: number) => ({
+          id: p.id || i + 1,
+          name: p.name || p.title || "Untitled Project",
+          client: p.client || p.agency || "",
+          status: p.status || "In Progress",
+          priority: p.priority || "Medium",
+          budget: p.budget || (p.value ? (p.value >= 1000000 ? `$${(p.value / 1000000).toFixed(1)}M` : `$${(p.value / 1000).toFixed(0)}K`) : "$0"),
+          team: p.team || p.teamSize || 0,
+          due: p.due || p.dueDate || "TBD",
+          progress: p.progress || 0,
+          color: projectColors[i % projectColors.length],
+        }));
+        setProjects(mapped);
+      }
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = projects.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase());
@@ -83,6 +124,26 @@ export default function Projects() {
       </div>
 
       {/* Project Cards */}
+      {loading ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="tech-card p-5 animate-pulse">
+              <div className="h-[2px] mb-4 -mx-5 -mt-5 bg-white/5" />
+              <div className="space-y-3">
+                <div className="h-4 bg-white/8 rounded w-3/4" />
+                <div className="h-3 bg-white/5 rounded w-1/2" />
+                <div className="h-2 bg-white/5 rounded w-full mt-4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="tech-card p-10 text-center">
+          <FolderKanban className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-400 mb-1">No projects found</p>
+          <p className="text-gray-500 text-sm">Create a project to get started with project tracking</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {filtered.map((project, i) => (
           <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.4 }}>
@@ -129,6 +190,7 @@ export default function Projects() {
           </motion.div>
         ))}
       </div>
+      )}
     </DashboardLayout>
   );
 }

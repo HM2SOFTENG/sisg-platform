@@ -1,26 +1,62 @@
 /* Team Page — Sentinel Sharp v2 */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Shield, Mail, Phone, Plus } from "lucide-react";
+import { Search, Shield, Mail, Phone, Plus, Users } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { toast } from "sonner";
 
-const members = [
-  { id: 1, name: "Col. James Hartley (Ret.)", role: "Chief Executive Officer", dept: "Executive", clearance: "TS/SCI", utilization: 85, color: "#0066ff", initials: "JH" },
-  { id: 2, name: "Dr. Sarah Chen", role: "Chief Technology Officer", dept: "Technology", clearance: "Secret", utilization: 92, color: "#00d4ff", initials: "SC" },
-  { id: 3, name: "Marcus Williams", role: "VP Cybersecurity", dept: "Cybersecurity", clearance: "TS/SCI", utilization: 78, color: "#8b5cf6", initials: "MW" },
-  { id: 4, name: "Jennifer Torres", role: "Program Manager", dept: "Operations", clearance: "Secret", utilization: 95, color: "#00e5a0", initials: "JT" },
-  { id: 5, name: "David Kim", role: "Lead Cloud Architect", dept: "Cloud", clearance: "Public Trust", utilization: 88, color: "#ffb800", initials: "DK" },
-  { id: 6, name: "Aisha Johnson", role: "Senior Software Engineer", dept: "Software", clearance: "Public Trust", utilization: 72, color: "#ff6b35", initials: "AJ" },
-  { id: 7, name: "Robert Martinez", role: "Penetration Tester", dept: "Cybersecurity", clearance: "Secret", utilization: 90, color: "#0066ff", initials: "RM" },
-  { id: 8, name: "Lisa Park", role: "DevSecOps Engineer", dept: "Cloud", clearance: "Public Trust", utilization: 83, color: "#00d4ff", initials: "LP" },
-];
+interface TeamMember {
+  id: number;
+  name: string;
+  role: string;
+  dept: string;
+  clearance: string;
+  utilization: number;
+  color: string;
+  initials: string;
+}
 
-const depts = ["All", "Executive", "Technology", "Cybersecurity", "Operations", "Cloud", "Software"];
+const deptColors = ["#0066ff", "#00d4ff", "#8b5cf6", "#00e5a0", "#ffb800", "#ff6b35"];
 
 export default function Team() {
   const [search, setSearch] = useState("");
   const [dept, setDept] = useState("All");
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [depts, setDepts] = useState<string[]>(["All"]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTeam();
+  }, []);
+
+  const fetchTeam = async () => {
+    try {
+      const token = localStorage.getItem("sisg_admin_token");
+      const response = await fetch("/api/admin/team", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mapped = data.map((m: any, i: number) => ({
+          id: m.id || i + 1,
+          name: m.name || "Unknown",
+          role: m.role || m.title || "Team Member",
+          dept: m.department || m.dept || "General",
+          clearance: m.clearance || "Public Trust",
+          utilization: m.utilization || 0,
+          color: deptColors[i % deptColors.length],
+          initials: (m.name || "U").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+        }));
+        setMembers(mapped);
+        const uniqueDepts = ["All", ...new Set<string>(mapped.map((m: TeamMember) => m.dept))];
+        setDepts(uniqueDepts);
+      }
+    } catch (error) {
+      console.error("Failed to fetch team:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = members.filter((m) => {
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.role.toLowerCase().includes(search.toLowerCase());
@@ -72,6 +108,28 @@ export default function Team() {
       </div>
 
       {/* Team Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="tech-card p-5 animate-pulse">
+              <div className="h-[2px] mb-4 -mx-5 -mt-5 bg-white/5" />
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 bg-white/5 rounded" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-white/8 rounded w-3/4" />
+                  <div className="h-3 bg-white/5 rounded w-1/2" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : members.length === 0 ? (
+        <div className="tech-card p-10 text-center">
+          <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-400 mb-1">No team members found</p>
+          <p className="text-gray-500 text-sm">Add team members to populate the directory</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((member, i) => (
           <motion.div key={member.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.4 }}>
@@ -119,6 +177,7 @@ export default function Team() {
           </motion.div>
         ))}
       </div>
+      )}
     </DashboardLayout>
   );
 }

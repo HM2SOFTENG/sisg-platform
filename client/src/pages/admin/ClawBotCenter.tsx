@@ -7,7 +7,8 @@ import {
   Play, Pause, Send, RefreshCw, AlertTriangle, CheckCircle2,
   Clock, Terminal, Zap, CircleDot, ChevronDown, Filter, Loader2, X, Info,
   GripVertical, Trash2, Edit2, MoreVertical, Plus, TrendingUp,
-  ChevronUp, Maximize2, Minimize2
+  ChevronUp, Maximize2, Minimize2, Copy, RotateCcw, XCircle, Eye,
+  ArrowRight, Timer, Hash, FileText
 } from "lucide-react";
 
 // ============================================================================
@@ -227,6 +228,9 @@ export default function ClawBotCenter() {
   // Task creation modal
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskFormData, setTaskFormData] = useState({ command: "", priority: "normal", agent: "" });
+
+  // Task details modal
+  const [selectedTask, setSelectedTask] = useState<BotTask | null>(null);
 
   // Previous state for change detection
   const prevStateRef = useRef<{ status: BotStatus | null; tasks: BotTask[]; logs: BotLog[] }>({
@@ -645,7 +649,7 @@ export default function ClawBotCenter() {
       case "metrics":
         return <MetricsCard key={cardId} metrics={metrics} tasks={tasks} />;
       case "kanban":
-        return <KanbanBoard key={cardId} tasksByStatus={tasksByStatus} onCancel={cancelTask} onRetry={retryTask} onDragEnd={updateTaskStatus} />;
+        return <KanbanBoard key={cardId} tasksByStatus={tasksByStatus} onCancel={cancelTask} onRetry={retryTask} onDragEnd={updateTaskStatus} onViewDetails={setSelectedTask} />;
       case "agents":
         return <AgentsPanel key={cardId} agents={agents} onRunAgent={(id) => createTask(`agent:run:${id}`, "high")} />;
       case "activity":
@@ -775,6 +779,18 @@ export default function ClawBotCenter() {
               onClose={() => setShowTaskModal(false)}
               onSubmit={(cmd, priority, agent) => createTask(cmd, priority, agent)}
               agents={agents}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ---- TASK DETAILS MODAL ---- */}
+        <AnimatePresence>
+          {selectedTask && (
+            <TaskDetailsModal
+              task={selectedTask}
+              onClose={() => setSelectedTask(null)}
+              onCancel={cancelTask}
+              onRetry={retryTask}
             />
           )}
         </AnimatePresence>
@@ -1036,11 +1052,13 @@ function KanbanBoard({
   onCancel,
   onRetry,
   onDragEnd,
+  onViewDetails,
 }: {
   tasksByStatus: Record<string, BotTask[]>;
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
   onDragEnd: (id: string, status: string) => void;
+  onViewDetails: (task: BotTask) => void;
 }) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -1165,14 +1183,12 @@ function KanbanBoard({
                           Retry
                         </button>
                       )}
-                      {task.result && (
-                        <button
-                          className="flex-1 px-2 py-1.5 text-[10px] font-mono text-white bg-[#0066ff]/20 border border-[#0066ff]/30 hover:bg-[#0066ff]/30 transition-colors"
-                          title={task.result}
-                        >
-                          Details
-                        </button>
-                      )}
+                      <button
+                        onClick={() => onViewDetails(task)}
+                        className="flex-1 px-2 py-1.5 text-[10px] font-mono text-white bg-[#0066ff]/20 border border-[#0066ff]/30 hover:bg-[#0066ff]/30 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" /> Details
+                      </button>
                     </div>
                   </motion.div>
                 ))}
@@ -1668,6 +1684,445 @@ function ConnectionCard({ status }: { status: BotStatus | null }) {
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// TASK DETAILS MODAL
+// ============================================================================
+
+function TaskDetailsModal({
+  task,
+  onClose,
+  onCancel,
+  onRetry,
+}: {
+  task: BotTask;
+  onClose: () => void;
+  onCancel: (id: string) => void;
+  onRetry: (id: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "output" | "timeline">("overview");
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      toast.success("Copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // Parse result if it's JSON
+  const parsedResult = (() => {
+    if (!task.result) return null;
+    try {
+      return JSON.parse(task.result);
+    } catch {
+      return task.result;
+    }
+  })();
+
+  const formatResult = (data: any): string => {
+    if (typeof data === "string") return data;
+    return JSON.stringify(data, null, 2);
+  };
+
+  // Build timeline events
+  const timeline: { label: string; time: string | null; icon: React.ReactNode; color: string }[] = [
+    { label: "Created", time: task.createdAt, icon: <Plus className="w-3 h-3" />, color: "#00d4ff" },
+    { label: "Started", time: task.startedAt || null, icon: <Play className="w-3 h-3" />, color: "#0066ff" },
+  ];
+  if (task.status === "completed") {
+    timeline.push({ label: "Completed", time: task.completedAt || null, icon: <CheckCircle2 className="w-3 h-3" />, color: "#00e5a0" });
+  } else if (task.status === "failed") {
+    timeline.push({ label: "Failed", time: task.completedAt || null, icon: <XCircle className="w-3 h-3" />, color: "#ff4444" });
+  } else if (task.status === "cancelled") {
+    timeline.push({ label: "Cancelled", time: task.completedAt || null, icon: <X className="w-3 h-3" />, color: "#6b7280" });
+  }
+
+  // Calculate duration
+  const getDuration = () => {
+    if (!task.startedAt) return null;
+    const end = task.completedAt ? new Date(task.completedAt).getTime() : Date.now();
+    const start = new Date(task.startedAt).getTime();
+    const ms = end - start;
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+  };
+
+  const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+    queued: { label: "QUEUED", color: "#00d4ff", bg: "#00d4ff", icon: <Clock className="w-4 h-4" /> },
+    running: { label: "RUNNING", color: "#0066ff", bg: "#0066ff", icon: <Loader2 className="w-4 h-4 animate-spin" /> },
+    completed: { label: "COMPLETED", color: "#00e5a0", bg: "#00e5a0", icon: <CheckCircle2 className="w-4 h-4" /> },
+    failed: { label: "FAILED", color: "#ff4444", bg: "#ff4444", icon: <AlertTriangle className="w-4 h-4" /> },
+    cancelled: { label: "CANCELLED", color: "#6b7280", bg: "#6b7280", icon: <X className="w-4 h-4" /> },
+  };
+
+  const sc = statusConfig[task.status] || statusConfig.queued;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: "spring", duration: 0.4 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl border border-[var(--border)] bg-[var(--card)] max-h-[85vh] flex flex-col overflow-hidden"
+      >
+        {/* ---- Header with status banner ---- */}
+        <div
+          className="px-5 py-4 border-b border-[var(--border)] relative"
+          style={{ background: `linear-gradient(135deg, ${sc.bg}08, ${sc.bg}03)` }}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-semibold border"
+                  style={{ borderColor: `${sc.color}50`, color: sc.color, background: `${sc.bg}15` }}
+                >
+                  {sc.icon}
+                  {sc.label}
+                </div>
+                <div
+                  className="px-2 py-1 text-[10px] font-mono border"
+                  style={{
+                    borderColor: `${priorityColors[task.priority] || "#6b7280"}50`,
+                    color: priorityColors[task.priority] || "#6b7280",
+                  }}
+                >
+                  {task.priority.toUpperCase()}
+                </div>
+              </div>
+              <h2 className="text-base font-mono text-white truncate pr-8">{task.command}</h2>
+              <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Hash className="w-3 h-3" /> {task.id.slice(0, 8)}
+                </span>
+                {task.agent && (
+                  <span className="flex items-center gap-1">
+                    <Bot className="w-3 h-3" /> {task.agent}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> {task.source}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-600 hover:text-gray-300 transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* ---- Tab Bar ---- */}
+        <div className="flex border-b border-[var(--border)]">
+          {(["overview", "output", "timeline"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 px-4 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors relative ${
+                activeTab === tab
+                  ? "text-white"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="taskDetailTab"
+                  className="absolute bottom-0 left-0 right-0 h-[2px]"
+                  style={{ background: sc.color }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ---- Tab Content ---- */}
+        <div className="flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            {activeTab === "overview" && (
+              <motion.div
+                key="overview"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="p-5 space-y-4"
+              >
+                {/* Quick Stats Row */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="border border-[var(--border)] p-3 bg-[var(--border)]/20">
+                    <div className="text-[9px] font-mono text-gray-500 uppercase mb-1">Duration</div>
+                    <div className="text-sm font-mono text-white flex items-center gap-1.5">
+                      <Timer className="w-3.5 h-3.5 text-gray-500" />
+                      {getDuration() || (task.status === "queued" ? "Waiting…" : "—")}
+                    </div>
+                  </div>
+                  <div className="border border-[var(--border)] p-3 bg-[var(--border)]/20">
+                    <div className="text-[9px] font-mono text-gray-500 uppercase mb-1">Created</div>
+                    <div className="text-sm font-mono text-white">{timeAgo(task.createdAt)}</div>
+                  </div>
+                  <div className="border border-[var(--border)] p-3 bg-[var(--border)]/20">
+                    <div className="text-[9px] font-mono text-gray-500 uppercase mb-1">Source</div>
+                    <div className="text-sm font-mono text-white capitalize">{task.source}</div>
+                  </div>
+                </div>
+
+                {/* Status Progress Bar */}
+                <div className="border border-[var(--border)] p-4 bg-[var(--border)]/20">
+                  <div className="text-[10px] font-mono text-gray-500 uppercase mb-3">Execution Progress</div>
+                  <div className="flex items-center gap-2">
+                    {["queued", "running", "completed"].map((step, idx) => {
+                      const stepOrder = { queued: 0, running: 1, completed: 2, failed: 2, cancelled: 2 };
+                      const currentOrder = stepOrder[task.status as keyof typeof stepOrder] ?? 0;
+                      const isActive = idx <= currentOrder;
+                      const isCurrent = idx === currentOrder;
+                      const isFailed = task.status === "failed" && idx === 2;
+                      const isCancelled = task.status === "cancelled" && idx === 2;
+                      const stepColor = isFailed ? "#ff4444" : isCancelled ? "#6b7280" : isActive ? "#00e5a0" : "#333";
+                      const stepLabel = isFailed ? "Failed" : isCancelled ? "Cancelled" : step;
+
+                      return (
+                        <React.Fragment key={step}>
+                          {idx > 0 && (
+                            <div className="flex-1 h-[2px]" style={{ background: isActive ? stepColor : "#333" }} />
+                          )}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div
+                              className={`w-6 h-6 flex items-center justify-center border-2 text-[10px] font-mono ${
+                                isCurrent && task.status === "running" ? "animate-pulse" : ""
+                              }`}
+                              style={{
+                                borderColor: stepColor,
+                                background: isActive ? `${stepColor}20` : "transparent",
+                                color: isActive ? stepColor : "#555",
+                              }}
+                            >
+                              {isActive ? (isFailed ? "✕" : "✓") : idx + 1}
+                            </div>
+                            <span
+                              className="text-[9px] font-mono capitalize"
+                              style={{ color: isActive ? stepColor : "#555" }}
+                            >
+                              {stepLabel}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Error Display */}
+                {task.error && (
+                  <div className="border border-[#ff4444]/30 bg-[#ff4444]/5 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-[#ff4444]" />
+                        <span className="text-[11px] font-mono text-[#ff4444] font-semibold uppercase">Error Details</span>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(task.error || "")}
+                        className="text-[10px] font-mono text-gray-500 hover:text-gray-300 flex items-center gap-1 transition-colors"
+                      >
+                        <Copy className="w-3 h-3" /> {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                    <pre className="text-[11px] font-mono text-[#ff4444]/80 whitespace-pre-wrap break-words leading-relaxed">
+                      {task.error}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Result Preview (compact) */}
+                {parsedResult && (
+                  <div className="border border-[var(--border)] p-4 bg-[var(--border)]/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono text-gray-500 uppercase">Result Preview</span>
+                      <button
+                        onClick={() => setActiveTab("output")}
+                        className="text-[10px] font-mono text-[#0066ff] hover:text-[#3388ff] flex items-center gap-1 transition-colors"
+                      >
+                        Full Output <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <pre className="text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-words max-h-32 overflow-hidden relative">
+                      {formatResult(parsedResult).slice(0, 500)}
+                      {formatResult(parsedResult).length > 500 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[var(--card)] to-transparent" />
+                      )}
+                    </pre>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === "output" && (
+              <motion.div
+                key="output"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="p-5"
+              >
+                {parsedResult ? (
+                  <div className="border border-[var(--border)] bg-black/30">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)]">
+                      <span className="text-[10px] font-mono text-gray-500 uppercase">
+                        {typeof parsedResult === "object" ? "JSON Output" : "Raw Output"}
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(formatResult(parsedResult))}
+                        className="text-[10px] font-mono text-gray-500 hover:text-gray-300 flex items-center gap-1 transition-colors"
+                      >
+                        <Copy className="w-3 h-3" /> {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                    <pre className="p-4 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-words overflow-y-auto max-h-[50vh] leading-relaxed">
+                      {formatResult(parsedResult)}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+                    <FileText className="w-8 h-8 mb-3 opacity-30" />
+                    <span className="text-sm font-mono">
+                      {task.status === "queued" ? "Task is waiting in queue…" :
+                       task.status === "running" ? "Output will appear when the task completes…" :
+                       "No output available"}
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === "timeline" && (
+              <motion.div
+                key="timeline"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="p-5"
+              >
+                <div className="space-y-0">
+                  {timeline.map((event, idx) => (
+                    <div key={event.label} className="flex gap-4">
+                      {/* Vertical line + dot */}
+                      <div className="flex flex-col items-center">
+                        <div
+                          className="w-7 h-7 flex items-center justify-center border-2 flex-shrink-0"
+                          style={{
+                            borderColor: event.time ? event.color : "#333",
+                            color: event.time ? event.color : "#555",
+                            background: event.time ? `${event.color}15` : "transparent",
+                          }}
+                        >
+                          {event.icon}
+                        </div>
+                        {idx < timeline.length - 1 && (
+                          <div
+                            className="w-[2px] flex-1 min-h-[24px]"
+                            style={{ background: timeline[idx + 1]?.time ? event.color : "#333" }}
+                          />
+                        )}
+                      </div>
+                      {/* Content */}
+                      <div className="pb-5 pt-1 flex-1">
+                        <div className="text-sm font-mono text-white">{event.label}</div>
+                        <div className="text-[11px] font-mono text-gray-500 mt-0.5">
+                          {event.time ? new Date(event.time).toLocaleString() : "Pending…"}
+                        </div>
+                        {event.time && idx > 0 && timeline[idx - 1]?.time && (
+                          <div className="text-[10px] font-mono text-gray-600 mt-1">
+                            +{(() => {
+                              const ms = new Date(event.time).getTime() - new Date(timeline[idx - 1].time!).getTime();
+                              if (ms < 1000) return `${ms}ms`;
+                              if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+                              return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Metadata table */}
+                <div className="mt-4 border border-[var(--border)] bg-[var(--border)]/20">
+                  <div className="px-4 py-2 border-b border-[var(--border)]">
+                    <span className="text-[10px] font-mono text-gray-500 uppercase">Task Metadata</span>
+                  </div>
+                  <div className="divide-y divide-[var(--border)]">
+                    {[
+                      { label: "Task ID", value: task.id },
+                      { label: "Command", value: task.command },
+                      { label: "Priority", value: task.priority },
+                      { label: "Source", value: task.source },
+                      { label: "Agent", value: task.agent || "—" },
+                      { label: "Created At", value: task.createdAt ? new Date(task.createdAt).toLocaleString() : "—" },
+                      { label: "Started At", value: task.startedAt ? new Date(task.startedAt).toLocaleString() : "—" },
+                      { label: "Completed At", value: task.completedAt ? new Date(task.completedAt).toLocaleString() : "—" },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center px-4 py-2">
+                        <span className="text-[10px] font-mono text-gray-500 w-28 flex-shrink-0">{row.label}</span>
+                        <span className="text-[11px] font-mono text-gray-300 truncate">{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ---- Footer Actions ---- */}
+        <div className="flex items-center gap-2 px-5 py-3 border-t border-[var(--border)] bg-[var(--border)]/20">
+          {(task.status === "queued" || task.status === "running") && (
+            <button
+              onClick={() => { onCancel(task.id); onClose(); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono text-white bg-[#ff4444]/20 border border-[#ff4444]/30 hover:bg-[#ff4444]/30 transition-colors"
+            >
+              <XCircle className="w-3.5 h-3.5" /> Cancel Task
+            </button>
+          )}
+          {task.status === "failed" && (
+            <button
+              onClick={() => { onRetry(task.id); onClose(); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono text-white bg-[#ffb800]/20 border border-[#ffb800]/30 hover:bg-[#ffb800]/30 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Retry Task
+            </button>
+          )}
+          {parsedResult && (
+            <button
+              onClick={() => copyToClipboard(formatResult(parsedResult))}
+              className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono text-gray-400 border border-white/10 hover:bg-white/5 transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" /> {copied ? "Copied!" : "Copy Result"}
+            </button>
+          )}
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-[11px] font-mono text-gray-400 border border-white/10 hover:bg-white/5 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

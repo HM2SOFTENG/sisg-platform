@@ -537,8 +537,17 @@ export default function SisgAgents() {
   const fetchDashboard = useCallback(async () => {
     try {
       const result = await apiFetch("/api/admin/agents/dashboard");
-      if (result.agents) {
-        setData(result);
+      const inner = result.data || result;
+      if (inner.agents) {
+        setData({
+          agents: inner.agents,
+          stats: {
+            totalAgents: inner.summary?.total ?? inner.agents.length,
+            deployed: inner.summary?.deployed ?? 0,
+            running: inner.agents.filter((a: any) => a.status === "deploying").length,
+            errors: inner.summary?.errors ?? 0,
+          },
+        });
         setLoading(false);
       }
     } catch (err) {
@@ -551,7 +560,8 @@ export default function SisgAgents() {
   const fetchRuns = useCallback(async (slug: string) => {
     try {
       const result = await apiFetch(`/api/admin/agents/${slug}/runs?limit=10`);
-      setRuns((prev) => ({ ...prev, [slug]: result.runs || [] }));
+      const runData = result.data || result.runs || [];
+      setRuns((prev) => ({ ...prev, [slug]: Array.isArray(runData) ? runData : [] }));
     } catch (err) {
       console.error(`Failed to fetch runs for ${slug}:`, err);
     }

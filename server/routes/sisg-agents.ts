@@ -120,6 +120,62 @@ router.get("/api/admin/agents/runs/latest", adminAuth, async (_req: Request, res
   }
 });
 
+/**
+ * GET /api/admin/agents/runs/all
+ * Get all agent runs across all agents with optional filtering
+ * Query params:
+ *   - limit: max number of runs (default 50, max 500)
+ *   - agent: filter by agent slug
+ *   - severity: filter outputs by severity (info|warning|critical|success)
+ */
+router.get("/api/admin/agents/runs/all", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const agentFilter = req.query.agent as string | undefined;
+    const severityFilter = req.query.severity as string | undefined;
+
+    const agents = await sisgAgents.getAgents();
+    const allRuns: any[] = [];
+
+    // Collect runs from all agents (or specific agent if filtered)
+    for (const agent of agents) {
+      if (agentFilter && agent.slug !== agentFilter) continue;
+
+      const runs = await sisgAgents.getAgentRuns(agent.slug, 500); // Get max, then filter/limit
+      allRuns.push(...runs);
+    }
+
+    // Sort by startedAt descending (most recent first)
+    allRuns.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    // Filter by severity if specified (checks outputs array)
+    let filtered = allRuns;
+    if (severityFilter) {
+      filtered = allRuns.filter(run =>
+        run.output && run.output.some((output: any) => output.severity === severityFilter)
+      );
+    }
+
+    // Apply limit
+    const results = filtered.slice(0, limit);
+
+    res.json({
+      success: true,
+      data: {
+        runs: results,
+        total: filtered.length,
+        limit,
+        filters: {
+          agent: agentFilter || null,
+          severity: severityFilter || null,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch all runs" });
+  }
+});
+
 // ---- PARAMETERIZED ROUTES ----
 
 /**

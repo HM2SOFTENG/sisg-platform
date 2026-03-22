@@ -20,7 +20,8 @@ import AdminLogin from "./pages/AdminLogin";
 // Dashboard pages
 import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
-import { Tasks, CalendarPage, TimeTracking, KnowledgeBase, Reports } from "./pages/DashboardPlaceholders";
+import { Tasks, CalendarPage, TimeTracking, KnowledgeBase } from "./pages/DashboardPlaceholders";
+import Reports from "./pages/admin/Reports";
 
 // Admin pages
 import FormSubmissions from "./pages/admin/FormSubmissions";

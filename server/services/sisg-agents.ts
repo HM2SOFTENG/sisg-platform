@@ -386,46 +386,53 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
     const fromStr = from.toISOString().split("T")[0];
 
-    // Fetch from SAM.gov (production endpoint, dates in MM/DD/YYYY)
+    // Fetch from SAM.gov (v2 endpoint, dates in MM/dd/yyyy, NAICS param is "ncode")
     const naicsParam = naicsCodes[0];
     const fromMDY = `${String(from.getMonth() + 1).padStart(2, "0")}/${String(from.getDate()).padStart(2, "0")}/${from.getFullYear()}`;
     const toMDY = `${String(to.getMonth() + 1).padStart(2, "0")}/${String(to.getDate()).padStart(2, "0")}/${to.getFullYear()}`;
-    const url = `https://api.sam.gov/prod/opportunities/v2/search?api_key=${apiKey}&limit=10&postedFrom=${fromMDY}&postedTo=${toMDY}&naicsCode=${naicsParam}`;
+    const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=10&offset=0&postedFrom=${fromMDY}&postedTo=${toMDY}&ncode=${naicsParam}`;
 
     const response = await fetchWithTimeout(url, {}, 15000);
 
     if (response?.ok) {
       const data = await response.json() as any;
+      const totalRecords = data.totalRecords || 0;
       const opportunities = data.opportunitiesData || [];
 
-      if (opportunities.length > 0) {
-        const newOppCount = Math.min(opportunities.length, 3);
-        outputs.push({
-          type: "alert",
-          title: "New SAM.gov Opportunities Found",
-          message: `Found ${opportunities.length} opportunities matching NAICS codes. Top ${newOppCount} listed.`,
-          severity: "success",
-          data: opportunities.slice(0, newOppCount).map((opp: any) => ({
-            title: opp.title,
+      outputs.push({
+        type: "report",
+        title: `SAM.gov Opportunity Scan — ${totalRecords} Total Results`,
+        message: `Scanned SAM.gov for NAICS ${naicsCodes.join(", ")} from ${fromMDY} to ${toMDY}. ${totalRecords} opportunities found.`,
+        severity: totalRecords > 0 ? "success" : "info",
+        data: {
+          summary: {
+            total_records: totalRecords,
+            naics_codes_searched: naicsCodes,
+            date_range: `${fromMDY} — ${toMDY}`,
+          },
+          opportunities: opportunities.slice(0, 5).map((opp: any) => ({
+            title: opp.title || "Untitled",
+            solicitation_number: opp.solicitationNumber || "N/A",
             notice_id: opp.noticeId,
-            deadline: opp.responseDeadLine,
-            agency: opp.organizationName,
+            type: opp.type || opp.baseType || "Unknown",
+            posted_date: opp.postedDate || "N/A",
+            response_deadline: opp.responseDeadLine || "Open",
+            naics_code: opp.naicsCode || "N/A",
+            set_aside: opp.typeOfSetAsideDescription || "None",
+            organization: opp.fullParentPathName || opp.department || "N/A",
+            place_of_performance: opp.placeOfPerformance?.state?.code || "N/A",
+            award_amount: opp.award?.amount ? `$${Number(opp.award.amount).toLocaleString()}` : null,
           })),
-        });
-      } else {
-        outputs.push({
-          type: "notification",
-          title: "SAM.gov Check Complete",
-          message: "No new opportunities found in the last 7 days.",
-          severity: "info",
-        });
-      }
+        },
+      });
     } else {
       const statusCode = response?.status || "no response";
+      let errorDetail = "";
+      try { errorDetail = await response?.text() || ""; } catch {}
       outputs.push({
         type: "alert",
         title: "SAM.gov API Error",
-        message: `API returned status ${statusCode}. Check API key validity or try again later.`,
+        message: `API returned status ${statusCode}. ${errorDetail ? errorDetail.substring(0, 150) : "Check API key validity or try again later."}`,
         severity: "warning",
       });
     }
@@ -607,32 +614,41 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
       });
     } else {
       // Filter for keywords relevant to typical IT/DoD stack
-      const keywords = ["linux", "windows", "node", "express", "sql", "database", "network", "ssh", "ssl", "crypto"];
+      const keywords = ["linux", "windows", "node", "express", "sql", "database", "network", "ssh", "ssl", "crypto", "docker", "nginx", "apache", "react", "javascript", "typescript", "postgresql", "api", "authentication", "authorization", "firewall", "vpn", "dns", "tls"];
       const relevantCves = allVulnerabilities.filter((v: any) => {
         const desc = (v.cve?.descriptions?.[0]?.value || "").toLowerCase();
         return keywords.some(kw => desc.includes(kw));
       });
 
-      if (relevantCves.length > 0) {
-        outputs.push({
-          type: "alert",
-          title: `Security Alert: ${relevantCves.length} HIGH/CRITICAL CVEs`,
-          message: `${relevantCves.length} new CVEs published in the last 24h matching your tech stack.`,
-          severity: "critical",
-          data: relevantCves.slice(0, 3).map((v: any) => ({
+      // Build detailed report
+      outputs.push({
+        type: "report",
+        title: `Cybersecurity Scan — ${allVulnerabilities.length} CVEs Analyzed`,
+        message: `Scanned NVD for CRITICAL and HIGH severity CVEs published ${pubStartDate} to ${pubEndDate}. ${allVulnerabilities.length} total CVEs found, ${relevantCves.length} match your tech stack.${hasNvdKey ? " (Authenticated API)" : " (Public API — rate limited)"}`,
+        severity: relevantCves.length > 0 ? "critical" : "success",
+        data: {
+          summary: {
+            scan_period: `${pubStartDate} to ${pubEndDate}`,
+            total_cves_found: allVulnerabilities.length,
+            relevant_to_stack: relevantCves.length,
+            api_mode: hasNvdKey ? "authenticated" : "public (rate-limited)",
+            keywords_monitored: keywords.slice(0, 10).join(", ") + "...",
+          },
+          critical_findings: relevantCves.slice(0, 5).map((v: any) => ({
             cve_id: v.cve?.id,
-            severity: v.cve?.metrics?.cvssMetricV31?.[0]?.cvssData?.baseSeverity || "HIGH",
-            description: (v.cve?.descriptions?.[0]?.value || "").substring(0, 100),
+            severity: v.cve?.metrics?.cvssMetricV31?.[0]?.cvssData?.baseSeverity || v.cve?.metrics?.cvssMetricV30?.[0]?.cvssData?.baseSeverity || "HIGH",
+            cvss_score: v.cve?.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore || v.cve?.metrics?.cvssMetricV30?.[0]?.cvssData?.baseScore || "N/A",
+            description: (v.cve?.descriptions?.[0]?.value || "").substring(0, 200),
+            published: v.cve?.published || "N/A",
+            references: (v.cve?.references || []).slice(0, 2).map((r: any) => r.url),
           })),
-        });
-      } else {
-        outputs.push({
-          type: "notification",
-          title: "CVE Check Complete",
-          message: `No critical vulnerabilities matching your tech stack in the last 24h.${hasNvdKey ? "" : " (Using public API — add NVD_API_KEY for higher rate limits)"}`,
-          severity: "success",
-        });
-      }
+          all_cves_summary: allVulnerabilities.slice(0, 10).map((v: any) => ({
+            id: v.cve?.id,
+            severity: v.cve?.metrics?.cvssMetricV31?.[0]?.cvssData?.baseSeverity || "Unknown",
+            score: v.cve?.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore || "N/A",
+          })),
+        },
+      });
     }
   } catch (error) {
     outputs.push({
@@ -842,7 +858,6 @@ async function executeDev(agent: SisgAgent): Promise<AgentOutput[]> {
     const githubToken = process.env.GITHUB_TOKEN;
 
     if (githubToken) {
-      // Real GitHub API call
       const headers = {
         Authorization: `Bearer ${githubToken}`,
         Accept: "application/vnd.github.v3+json",
@@ -850,34 +865,70 @@ async function executeDev(agent: SisgAgent): Promise<AgentOutput[]> {
 
       // Fetch open PRs
       const prResponse = await fetchWithTimeout(
-        "https://api.github.com/repos/HM2SOFTENG/sisg-platform/pulls?state=open&per_page=5",
+        "https://api.github.com/repos/HM2SOFTENG/sisg-platform/pulls?state=open&per_page=10",
         { headers },
-        8000
+        15000
       );
 
-      if (prResponse?.ok) {
-        const prs = await prResponse.json() as any[];
-        if (prs.length > 0) {
-          outputs.push({
-            type: "report",
-            title: `Open Pull Requests: ${prs.length}`,
-            message: `${prs.length} PR(s) awaiting review.`,
-            severity: prs.length > 3 ? "warning" : "info",
-            data: prs.slice(0, 3).map((pr: any) => ({
-              title: pr.title,
-              author: pr.user.login,
-              created: pr.created_at,
-            })),
-          });
-        }
-      }
-    } else {
-      // Fallback: mock data
+      // Fetch recent commits
+      const commitsResponse = await fetchWithTimeout(
+        "https://api.github.com/repos/HM2SOFTENG/sisg-platform/commits?per_page=5",
+        { headers },
+        15000
+      );
+
+      // Fetch open issues
+      const issuesResponse = await fetchWithTimeout(
+        "https://api.github.com/repos/HM2SOFTENG/sisg-platform/issues?state=open&per_page=10",
+        { headers },
+        15000
+      );
+
+      const prs = prResponse?.ok ? await prResponse.json() as any[] : [];
+      const commits = commitsResponse?.ok ? await commitsResponse.json() as any[] : [];
+      const issues = issuesResponse?.ok ? await issuesResponse.json() as any[] : [];
+      // Filter out PRs from issues (GitHub API returns PRs as issues too)
+      const realIssues = issues.filter((i: any) => !i.pull_request);
+
       outputs.push({
-        type: "notification",
+        type: "report",
+        title: `Dev Report — ${prs.length} PRs, ${realIssues.length} Issues, ${commits.length} Recent Commits`,
+        message: `GitHub repository HM2SOFTENG/sisg-platform: ${prs.length} open PR(s), ${realIssues.length} open issue(s), ${commits.length} recent commit(s).`,
+        severity: prs.length > 3 ? "warning" : "info",
+        data: {
+          summary: {
+            open_prs: prs.length,
+            open_issues: realIssues.length,
+            recent_commits: commits.length,
+          },
+          pull_requests: prs.slice(0, 5).map((pr: any) => ({
+            title: pr.title,
+            number: pr.number,
+            author: pr.user?.login,
+            created: pr.created_at,
+            labels: (pr.labels || []).map((l: any) => l.name).join(", ") || "none",
+            draft: pr.draft || false,
+          })),
+          recent_commits: commits.slice(0, 5).map((c: any) => ({
+            sha: c.sha?.substring(0, 7),
+            message: (c.commit?.message || "").split("\n")[0].substring(0, 80),
+            author: c.commit?.author?.name || c.author?.login,
+            date: c.commit?.author?.date,
+          })),
+          open_issues: realIssues.slice(0, 5).map((i: any) => ({
+            title: i.title,
+            number: i.number,
+            labels: (i.labels || []).map((l: any) => l.name).join(", ") || "none",
+            created: i.created_at,
+          })),
+        },
+      });
+    } else {
+      outputs.push({
+        type: "alert",
         title: "GitHub Monitoring",
-        message: "GitHub token not configured. Running in demo mode.",
-        severity: "info",
+        message: "GITHUB_TOKEN not configured. Add it to environment variables to enable dev monitoring.",
+        severity: "warning",
       });
     }
 
@@ -885,17 +936,19 @@ async function executeDev(agent: SisgAgent): Promise<AgentOutput[]> {
     const projects = storage.read("projects") as any[];
     const activeProjects = projects.filter((p: any) => p.status === "active");
 
-    outputs.push({
-      type: "report",
-      title: `Active Projects: ${activeProjects.length}`,
-      message: `${activeProjects.length} project(s) in active development.`,
-      severity: "info",
-      data: activeProjects.slice(0, 3).map((p: any) => ({
-        name: p.name,
-        status: p.status,
-        progress: p.progress || 0,
-      })),
-    });
+    if (activeProjects.length > 0) {
+      outputs.push({
+        type: "report",
+        title: `Active Projects: ${activeProjects.length}`,
+        message: `${activeProjects.length} project(s) in active development.`,
+        severity: "info",
+        data: activeProjects.slice(0, 5).map((p: any) => ({
+          name: p.name,
+          status: p.status,
+          progress: p.progress || 0,
+        })),
+      });
+    }
   } catch (error) {
     outputs.push({
       type: "alert",

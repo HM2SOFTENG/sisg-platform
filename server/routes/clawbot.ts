@@ -92,7 +92,51 @@ router.post("/api/admin/clawbot/tasks", adminAuth, async (req: Request, res: Res
   }
 });
 
-// Task status update (called BY ClawBot)
+// Task status update (called from dashboard — admin auth)
+router.put("/api/admin/clawbot/tasks/:id", adminAuth, (req: Request, res: Response) => {
+  try {
+    const result = clawbot.updateTask(req.params.id, req.body);
+    if (!result) return res.status(404).json({ error: "Task not found" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update task" });
+  }
+});
+
+// Cancel a task (dashboard)
+router.post("/api/admin/clawbot/tasks/:id/cancel", adminAuth, (req: Request, res: Response) => {
+  try {
+    const result = clawbot.updateTask(req.params.id, {
+      status: "cancelled",
+      completedAt: new Date().toISOString(),
+    });
+    if (!result) return res.status(404).json({ error: "Task not found" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to cancel task" });
+  }
+});
+
+// Retry a failed task (dashboard) — creates a new task with the same command
+router.post("/api/admin/clawbot/tasks/:id/retry", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const tasks = await clawbot.getTasks();
+    const original = tasks.find((t: any) => t.id === req.params.id);
+    if (!original) return res.status(404).json({ error: "Task not found" });
+
+    const newTask = await clawbot.createTask({
+      command: original.command,
+      priority: original.priority || "normal",
+      source: "dashboard",
+      agent: original.agent,
+    });
+    res.status(201).json(newTask);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to retry task" });
+  }
+});
+
+// Task status update (called BY ClawBot — API key auth)
 router.put("/api/clawbot/tasks/:id", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
   if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {

@@ -190,10 +190,8 @@ const scheduledAgents = new Map<string, { lastRun: number; nextRun: number }>();
 
 // --- HELPER FUNCTIONS ---
 
-/**
- * Parse simple cron expressions and calculate next run time
- * Supports: "0 9 * * 1-5", "*/30 * * * *", "0 */6 * * *", "manual"
- */
+// Parse simple cron expressions and calculate next run time
+// Supports: "0 9 * * 1-5", "star/30 * * * *", "0 star/6 * * *", "manual"
 function parseNextRun(cronExpr: string, lastRunTime?: Date): Date {
   if (cronExpr === "manual") return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
 

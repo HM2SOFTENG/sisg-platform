@@ -380,60 +380,190 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     }
 
     const naicsCodes = agent.config.naicsCodes || ["541512", "541511"];
+    const setAsides = agent.config.setAsides || ["SDVOSBC", "SBA", "8A"];
+    const now = new Date();
 
-    // Calculate date range (last 7 days)
-    const to = new Date();
-    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const fromStr = from.toISOString().split("T")[0];
+    // Date formatting helper (MM/dd/yyyy)
+    const toMDY = (d: Date) => `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 
-    // Fetch from SAM.gov (v2 endpoint, dates in MM/dd/yyyy, NAICS param is "ncode")
-    const naicsParam = naicsCodes[0];
-    const fromMDY = `${String(from.getMonth() + 1).padStart(2, "0")}/${String(from.getDate()).padStart(2, "0")}/${from.getFullYear()}`;
-    const toMDY = `${String(to.getMonth() + 1).padStart(2, "0")}/${String(to.getDate()).padStart(2, "0")}/${to.getFullYear()}`;
-    const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=10&offset=0&postedFrom=${fromMDY}&postedTo=${toMDY}&ncode=${naicsParam}`;
+    // Scan last 14 days for broader coverage
+    const from = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const fromStr = toMDY(from);
+    const toStr = toMDY(now);
 
-    const response = await fetchWithTimeout(url, {}, 15000);
+    // Fetch opportunities across ALL configured NAICS codes
+    let allOpportunities: any[] = [];
+    let totalRecordsSum = 0;
+    const fetchErrors: string[] = [];
+    const seenNoticeIds = new Set<string>();
 
-    if (response?.ok) {
-      const data = await response.json() as any;
-      const totalRecords = data.totalRecords || 0;
-      const opportunities = data.opportunitiesData || [];
+    for (const ncode of naicsCodes) {
+      const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=25&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&ncode=${ncode}`;
+      const response = await fetchWithTimeout(url, {}, 20000);
 
-      outputs.push({
-        type: "report",
-        title: `SAM.gov Opportunity Scan — ${totalRecords} Total Results`,
-        message: `Scanned SAM.gov for NAICS ${naicsCodes.join(", ")} from ${fromMDY} to ${toMDY}. ${totalRecords} opportunities found.`,
-        severity: totalRecords > 0 ? "success" : "info",
-        data: {
-          summary: {
-            total_records: totalRecords,
-            naics_codes_searched: naicsCodes,
-            date_range: `${fromMDY} — ${toMDY}`,
-          },
-          opportunities: opportunities.slice(0, 5).map((opp: any) => ({
-            title: opp.title || "Untitled",
-            solicitation_number: opp.solicitationNumber || "N/A",
-            notice_id: opp.noticeId,
-            type: opp.type || opp.baseType || "Unknown",
-            posted_date: opp.postedDate || "N/A",
-            response_deadline: opp.responseDeadLine || "Open",
-            naics_code: opp.naicsCode || "N/A",
-            set_aside: opp.typeOfSetAsideDescription || "None",
-            organization: opp.fullParentPathName || opp.department || "N/A",
-            place_of_performance: opp.placeOfPerformance?.state?.code || "N/A",
-            award_amount: opp.award?.amount ? `$${Number(opp.award.amount).toLocaleString()}` : null,
-          })),
+      if (response?.ok) {
+        const data = await response.json() as any;
+        totalRecordsSum += data.totalRecords || 0;
+        const opps = data.opportunitiesData || [];
+        for (const opp of opps) {
+          if (!seenNoticeIds.has(opp.noticeId)) {
+            seenNoticeIds.add(opp.noticeId);
+            allOpportunities.push(opp);
+          }
+        }
+      } else {
+        const status = response?.status || "timeout";
+        let errBody = "";
+        try { errBody = (await response?.text() || "").substring(0, 100); } catch {}
+        fetchErrors.push(`NAICS ${ncode}: HTTP ${status} ${errBody}`);
+      }
+    }
+
+    // Also do a set-aside-specific search for SDVOSB opportunities
+    for (const setAside of setAsides.slice(0, 2)) {
+      const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=15&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&typeOfSetAside=${setAside}`;
+      const response = await fetchWithTimeout(url, {}, 20000);
+      if (response?.ok) {
+        const data = await response.json() as any;
+        const opps = data.opportunitiesData || [];
+        for (const opp of opps) {
+          if (!seenNoticeIds.has(opp.noticeId)) {
+            seenNoticeIds.add(opp.noticeId);
+            allOpportunities.push(opp);
+          }
+        }
+      }
+    }
+
+    // Score and categorize opportunities
+    const scored = allOpportunities.map((opp: any) => {
+      let score = 0;
+      const reasons: string[] = [];
+      const naics = opp.naicsCode || "";
+      const setAside = opp.typeOfSetAside || "";
+      const title = (opp.title || "").toLowerCase();
+      const type = opp.type || opp.baseType || "";
+
+      // NAICS match
+      if (naicsCodes.includes(naics)) { score += 30; reasons.push(`NAICS ${naics} match`); }
+      // Set-aside match (SDVOSB is highest priority for veteran-owned)
+      if (setAside === "SDVOSBC" || setAside === "SDVOSBS") { score += 25; reasons.push("SDVOSB set-aside"); }
+      else if (setAsides.includes(setAside)) { score += 15; reasons.push(`${setAside} set-aside`); }
+      // Keyword relevance
+      const keywords = ["software", "it ", "information technology", "cybersecurity", "cloud", "devops",
+        "system integration", "application", "development", "engineering", "security", "data",
+        "network", "infrastructure", "migration", "modernization", "agile", "scrum"];
+      const matched = keywords.filter(kw => title.includes(kw));
+      if (matched.length > 0) { score += matched.length * 5; reasons.push(`Keywords: ${matched.join(", ")}`); }
+      // Solicitation type bonus
+      if (type === "Solicitation" || type === "Combined Synopsis/Solicitation") { score += 10; reasons.push("Active solicitation"); }
+      else if (type === "Sources Sought") { score += 5; reasons.push("Sources sought — early positioning"); }
+      else if (type === "Pre solicitation") { score += 8; reasons.push("Pre-solicitation — upcoming"); }
+      // Deadline urgency
+      if (opp.responseDeadLine) {
+        const deadline = new Date(opp.responseDeadLine);
+        const daysLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysLeft > 0 && daysLeft <= 14) { score += 10; reasons.push(`Deadline in ${Math.round(daysLeft)} days`); }
+        else if (daysLeft > 14 && daysLeft <= 30) { score += 5; reasons.push(`Deadline in ${Math.round(daysLeft)} days`); }
+      }
+
+      return { ...opp, _score: score, _reasons: reasons };
+    });
+
+    // Sort by score descending
+    scored.sort((a: any, b: any) => b._score - a._score);
+    const highValue = scored.filter((s: any) => s._score >= 30);
+    const medValue = scored.filter((s: any) => s._score >= 15 && s._score < 30);
+
+    // Persist opportunities to storage for proposals agent
+    const storedOpps = scored.slice(0, 50).map((opp: any) => ({
+      id: opp.noticeId,
+      noticeId: opp.noticeId,
+      title: opp.title || "Untitled",
+      solicitationNumber: opp.solicitationNumber || "",
+      type: opp.type || opp.baseType || "Unknown",
+      postedDate: opp.postedDate || "",
+      responseDeadline: opp.responseDeadLine || null,
+      naicsCode: opp.naicsCode || "",
+      setAside: opp.typeOfSetAside || "",
+      setAsideDescription: opp.typeOfSetAsideDescription || "",
+      organization: opp.fullParentPathName || opp.department || "",
+      placeOfPerformance: opp.placeOfPerformance?.state?.code || "",
+      awardAmount: opp.award?.amount || null,
+      score: opp._score,
+      reasons: opp._reasons,
+      description: opp.description || "",
+      uiLink: opp.uiLink || "",
+      pointOfContact: opp.pointOfContact?.[0] || null,
+      active: opp.active,
+      fetchedAt: now.toISOString(),
+    }));
+    storage.write("sam_opportunities", storedOpps);
+
+    // Build comprehensive report
+    outputs.push({
+      type: "report",
+      title: `SAM.gov Intelligence Report — ${allOpportunities.length} Opportunities Analyzed`,
+      message: `Scanned ${naicsCodes.length} NAICS codes and ${setAsides.length} set-aside types across 14 days. ${highValue.length} high-value, ${medValue.length} medium-value opportunities identified.`,
+      severity: highValue.length > 0 ? "success" : "info",
+      data: {
+        scan_summary: {
+          period: `${fromStr} — ${toStr}`,
+          naics_codes: naicsCodes,
+          set_asides_monitored: setAsides,
+          total_unique_opportunities: allOpportunities.length,
+          high_value_matches: highValue.length,
+          medium_value_matches: medValue.length,
+          api_errors: fetchErrors.length > 0 ? fetchErrors : "none",
         },
-      });
-    } else {
-      const statusCode = response?.status || "no response";
-      let errorDetail = "";
-      try { errorDetail = await response?.text() || ""; } catch {}
+        top_opportunities: scored.slice(0, 10).map((opp: any) => ({
+          score: opp._score,
+          match_reasons: opp._reasons,
+          title: opp.title || "Untitled",
+          solicitation_number: opp.solicitationNumber || "N/A",
+          type: opp.type || opp.baseType || "Unknown",
+          posted_date: opp.postedDate || "N/A",
+          response_deadline: opp.responseDeadLine || "Open",
+          naics_code: opp.naicsCode || "N/A",
+          set_aside: opp.typeOfSetAsideDescription || "Full & Open",
+          organization: opp.fullParentPathName || "N/A",
+          place_of_performance: opp.placeOfPerformance?.state?.code || "N/A",
+          contact: opp.pointOfContact?.[0] ? {
+            name: opp.pointOfContact[0].fullName,
+            email: opp.pointOfContact[0].email,
+            phone: opp.pointOfContact[0].phone,
+          } : null,
+          award: opp.award?.amount ? { amount: `$${Number(opp.award.amount).toLocaleString()}`, date: opp.award.date } : null,
+        })),
+        opportunity_types: Object.entries(
+          allOpportunities.reduce((acc: any, opp: any) => {
+            const t = opp.type || opp.baseType || "Unknown";
+            acc[t] = (acc[t] || 0) + 1;
+            return acc;
+          }, {})
+        ).map(([type, count]) => ({ type, count })),
+      },
+    });
+
+    // Alert for high-urgency deadlines
+    const urgentDeadlines = scored.filter((opp: any) => {
+      if (!opp.responseDeadLine) return false;
+      const daysLeft = (new Date(opp.responseDeadLine).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return daysLeft > 0 && daysLeft <= 7 && opp._score >= 20;
+    });
+
+    if (urgentDeadlines.length > 0) {
       outputs.push({
         type: "alert",
-        title: "SAM.gov API Error",
-        message: `API returned status ${statusCode}. ${errorDetail ? errorDetail.substring(0, 150) : "Check API key validity or try again later."}`,
-        severity: "warning",
+        title: `URGENT: ${urgentDeadlines.length} High-Value Deadlines Within 7 Days`,
+        message: `${urgentDeadlines.length} scored opportunities have response deadlines this week. Immediate review recommended.`,
+        severity: "critical",
+        data: urgentDeadlines.slice(0, 5).map((opp: any) => ({
+          title: opp.title,
+          deadline: opp.responseDeadLine,
+          score: opp._score,
+          solicitation: opp.solicitationNumber,
+        })),
       });
     }
   } catch (error) {
@@ -449,50 +579,176 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
 }
 
 /**
- * @proposals - Check for upcoming RFP deadlines and generate reports
+ * @proposals - Generate proposal briefs from stored SAM.gov opportunities
+ * Reads opportunities persisted by the contracts agent, scores them for bid/no-bid,
+ * and generates proposal outline summaries for the highest-value targets.
  */
 async function executeProposals(agent: SisgAgent): Promise<AgentOutput[]> {
   const outputs: AgentOutput[] = [];
 
   try {
-    // Read contracts from storage to find active RFPs
-    const contracts = storage.read("contracts") as any[];
     const now = new Date();
+    // Read SAM.gov opportunities stored by contracts agent
+    const samOpps = storage.read("sam_opportunities") as any[];
 
-    // Filter for active RFPs with deadlines in next 30 days
-    const activeRfps = contracts.filter((c: any) => {
+    if (samOpps.length === 0) {
+      outputs.push({
+        type: "notification",
+        title: "Proposals Agent",
+        message: "No SAM.gov opportunities in pipeline. Run the Contracts agent first to populate the opportunity database.",
+        severity: "info",
+      });
+      return outputs;
+    }
+
+    // Filter for actionable opportunities (solicitations with deadlines)
+    const actionable = samOpps.filter((opp: any) => {
+      if (!opp.responseDeadline) return opp.score >= 25; // Include high-scored even without deadline
+      const deadline = new Date(opp.responseDeadline);
+      const daysLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return daysLeft > 0 && opp.score >= 15;
+    }).sort((a: any, b: any) => b.score - a.score);
+
+    // Generate proposal briefs for top opportunities
+    const proposalBriefs = actionable.slice(0, 8).map((opp: any) => {
+      const daysLeft = opp.responseDeadline
+        ? Math.round((new Date(opp.responseDeadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      // Determine bid recommendation
+      let bidRecommendation = "REVIEW";
+      let bidRationale = "";
+      if (opp.score >= 40) {
+        bidRecommendation = "STRONG BID";
+        bidRationale = "High NAICS + set-aside alignment with SISG core competencies.";
+      } else if (opp.score >= 25) {
+        bidRecommendation = "RECOMMENDED";
+        bidRationale = "Good alignment with capabilities. Review scope and past performance fit.";
+      } else {
+        bidRecommendation = "EVALUATE";
+        bidRationale = "Partial match — assess teaming or subcontracting potential.";
+      }
+
+      // Generate capability alignment assessment
+      const capabilities: string[] = [];
+      const titleLower = (opp.title || "").toLowerCase();
+      if (titleLower.match(/software|application|development|devops/)) capabilities.push("Custom Software Development");
+      if (titleLower.match(/cyber|security|cmmc|nist/)) capabilities.push("Cybersecurity & CMMC Compliance");
+      if (titleLower.match(/cloud|aws|azure|migration/)) capabilities.push("Cloud Migration & Infrastructure");
+      if (titleLower.match(/data|analytics|ai|machine learning/)) capabilities.push("Data Analytics & AI/ML");
+      if (titleLower.match(/network|infrastructure|system/)) capabilities.push("IT Systems Integration");
+      if (titleLower.match(/support|help desk|maintenance/)) capabilities.push("IT Support & Managed Services");
+      if (titleLower.match(/agile|scrum|project management/)) capabilities.push("Agile Program Management");
+      if (capabilities.length === 0) capabilities.push("General IT Services — review scope for alignment");
+
+      // Determine approach strategy
+      let strategy = "Prime Contractor";
+      if (opp.setAside === "SDVOSBC" || opp.setAside === "SDVOSBS") {
+        strategy = "Prime Contractor (SDVOSB Set-Aside — SISG eligible)";
+      } else if (opp.score < 25) {
+        strategy = "Subcontractor / Teaming Partner — identify prime";
+      }
+
+      return {
+        opportunity: {
+          title: opp.title,
+          solicitation: opp.solicitationNumber || "N/A",
+          organization: opp.organization || "N/A",
+          naics: opp.naicsCode,
+          set_aside: opp.setAsideDescription || "Full & Open",
+          posted: opp.postedDate,
+          deadline: opp.responseDeadline || "TBD",
+          days_remaining: daysLeft,
+          score: opp.score,
+        },
+        proposal_brief: {
+          bid_recommendation: bidRecommendation,
+          rationale: bidRationale,
+          capability_alignment: capabilities,
+          pursuit_strategy: strategy,
+          key_personnel_needed: capabilities.length > 2 ? "Project Manager, Technical Lead, Subject Matter Experts" : "Project Manager, Technical Lead",
+          estimated_level_of_effort: daysLeft && daysLeft < 14 ? "EXPEDITED — fast-track proposal development" : "Standard proposal timeline",
+          past_performance_relevance: "Review SISG past performance database for similar NAICS/scope",
+        },
+        next_steps: [
+          daysLeft && daysLeft <= 7 ? "IMMEDIATE: Bid/No-Bid decision required today" : "Schedule Bid/No-Bid review meeting",
+          "Download full solicitation documents from SAM.gov",
+          "Identify key personnel and subcontractors",
+          "Review compliance requirements (FAR/DFARS clauses)",
+          opp.pointOfContact ? `Contact: ${opp.pointOfContact.fullName} (${opp.pointOfContact.email})` : "Identify contracting officer",
+        ],
+      };
+    });
+
+    // Pipeline summary
+    const strongBids = proposalBriefs.filter(b => b.proposal_brief.bid_recommendation === "STRONG BID");
+    const recommended = proposalBriefs.filter(b => b.proposal_brief.bid_recommendation === "RECOMMENDED");
+
+    outputs.push({
+      type: "report",
+      title: `Proposal Pipeline — ${proposalBriefs.length} Opportunities Briefed`,
+      message: `Generated proposal briefs for ${proposalBriefs.length} opportunities. ${strongBids.length} strong bid recommendations, ${recommended.length} recommended for pursuit. ${samOpps.length} total opportunities in database.`,
+      severity: strongBids.length > 0 ? "success" : "info",
+      data: {
+        pipeline_summary: {
+          total_in_database: samOpps.length,
+          actionable_opportunities: actionable.length,
+          briefs_generated: proposalBriefs.length,
+          strong_bids: strongBids.length,
+          recommended_bids: recommended.length,
+          evaluate: proposalBriefs.length - strongBids.length - recommended.length,
+        },
+        proposal_briefs: proposalBriefs,
+      },
+    });
+
+    // Deadline alerts
+    const deadlineAlerts = proposalBriefs.filter(b =>
+      b.opportunity.days_remaining !== null && b.opportunity.days_remaining <= 14
+    );
+
+    if (deadlineAlerts.length > 0) {
+      outputs.push({
+        type: "alert",
+        title: `Proposal Deadlines: ${deadlineAlerts.length} Due Within 14 Days`,
+        message: `${deadlineAlerts.length} proposal-worthy opportunities have response deadlines within 2 weeks.`,
+        severity: "critical",
+        data: deadlineAlerts.map(b => ({
+          title: b.opportunity.title,
+          deadline: b.opportunity.deadline,
+          days_left: b.opportunity.days_remaining,
+          recommendation: b.proposal_brief.bid_recommendation,
+        })),
+      });
+    }
+
+    // Also check locally tracked RFPs from manual entries
+    const contracts = storage.read("contracts") as any[];
+    const manualRfps = contracts.filter((c: any) => {
+      if (c.status !== "rfp") return false;
       const deadline = new Date(c.deadline);
-      const daysUntilDeadline = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return c.status === "rfp" && daysUntilDeadline > 0 && daysUntilDeadline <= 30;
-    }).sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+      const daysLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return daysLeft > 0 && daysLeft <= 30;
+    });
 
-    if (activeRfps.length > 0) {
+    if (manualRfps.length > 0) {
       outputs.push({
         type: "report",
-        title: `Active RFPs: ${activeRfps.length} Deadline(s) Within 30 Days`,
-        message: activeRfps.length === 1
-          ? `1 RFP deadline approaching: ${activeRfps[0].title}`
-          : `${activeRfps.length} RFP deadlines approaching`,
-        severity: activeRfps.length > 2 ? "critical" : "warning",
-        data: activeRfps.slice(0, 5).map((rfp: any) => ({
+        title: `Manually Tracked RFPs: ${manualRfps.length}`,
+        message: `${manualRfps.length} manually-entered RFP(s) with upcoming deadlines.`,
+        severity: "warning",
+        data: manualRfps.slice(0, 5).map((rfp: any) => ({
           title: rfp.title,
           deadline: rfp.deadline,
           value: rfp.value,
         })),
-      });
-    } else {
-      outputs.push({
-        type: "notification",
-        title: "RFP Tracking",
-        message: "No active RFPs with deadlines in the next 30 days.",
-        severity: "info",
       });
     }
   } catch (error) {
     outputs.push({
       type: "alert",
       title: "Proposals Error",
-      message: `Failed to check RFP deadlines: ${error instanceof Error ? error.message : "Unknown error"}`,
+      message: `Failed to generate proposal briefs: ${error instanceof Error ? error.message : "Unknown error"}`,
       severity: "warning",
     });
   }
@@ -1082,6 +1338,133 @@ async function executeSisg(agent: SisgAgent): Promise<AgentOutput[]> {
 }
 
 /**
+ * Generate comprehensive daily opportunity digest
+ * Runs contracts + proposals agents, then aggregates into a single executive report
+ */
+async function generateDailyDigest(): Promise<{
+  generatedAt: string;
+  executive_summary: any;
+  opportunity_intelligence: any;
+  proposal_pipeline: any;
+  action_items: any[];
+  agent_status: any;
+}> {
+  const now = new Date();
+  const agents = storage.read("sisg_agents") as SisgAgent[];
+
+  // Run contracts agent to refresh SAM.gov data
+  const contractsAgent = agents.find(a => a.slug === "contracts");
+  let contractsOutput: AgentOutput[] = [];
+  if (contractsAgent) {
+    contractsOutput = await executeContracts(contractsAgent);
+  }
+
+  // Run proposals agent to generate briefs from fresh data
+  const proposalsAgent = agents.find(a => a.slug === "proposals");
+  let proposalsOutput: AgentOutput[] = [];
+  if (proposalsAgent) {
+    proposalsOutput = await executeProposals(proposalsAgent);
+  }
+
+  // Read stored opportunities
+  const samOpps = storage.read("sam_opportunities") as any[];
+
+  // Build executive summary
+  const highValue = samOpps.filter((o: any) => o.score >= 30);
+  const sdvosbOpps = samOpps.filter((o: any) => o.setAside === "SDVOSBC" || o.setAside === "SDVOSBS");
+  const urgentDeadlines = samOpps.filter((o: any) => {
+    if (!o.responseDeadline) return false;
+    const daysLeft = (new Date(o.responseDeadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return daysLeft > 0 && daysLeft <= 7;
+  });
+
+  // Extract proposal briefs from proposals output
+  const proposalReport = proposalsOutput.find(o => o.title?.includes("Proposal Pipeline"));
+  const proposalBriefs = proposalReport?.data?.proposal_briefs || [];
+  const strongBids = proposalBriefs.filter((b: any) => b.proposal_brief?.bid_recommendation === "STRONG BID");
+
+  // Build action items
+  const actionItems: any[] = [];
+
+  // Urgent deadlines
+  urgentDeadlines.forEach((opp: any) => {
+    const daysLeft = Math.round((new Date(opp.responseDeadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    actionItems.push({
+      priority: "URGENT",
+      action: `Respond to "${opp.title}" — deadline in ${daysLeft} day(s)`,
+      solicitation: opp.solicitationNumber,
+      deadline: opp.responseDeadline,
+      contact: opp.pointOfContact ? `${opp.pointOfContact.fullName} (${opp.pointOfContact.email})` : "See SAM.gov",
+    });
+  });
+
+  // Strong bid recommendations
+  strongBids.forEach((brief: any) => {
+    if (!urgentDeadlines.find((u: any) => u.title === brief.opportunity?.title)) {
+      actionItems.push({
+        priority: "HIGH",
+        action: `Initiate proposal development for "${brief.opportunity?.title}"`,
+        solicitation: brief.opportunity?.solicitation,
+        recommendation: brief.proposal_brief?.bid_recommendation,
+        strategy: brief.proposal_brief?.pursuit_strategy,
+      });
+    }
+  });
+
+  // SDVOSB opportunities needing review
+  sdvosbOpps.filter((o: any) => o.score >= 20).slice(0, 3).forEach((opp: any) => {
+    if (!actionItems.find(a => a.solicitation === opp.solicitationNumber)) {
+      actionItems.push({
+        priority: "MEDIUM",
+        action: `Review SDVOSB opportunity: "${opp.title}"`,
+        solicitation: opp.solicitationNumber || "N/A",
+        naics: opp.naicsCode,
+        score: opp.score,
+      });
+    }
+  });
+
+  // Get latest agent runs for status
+  const runs = storage.read("sisg_agent_runs") as AgentRun[];
+  const agentStatus = agents.map(a => {
+    const latestRun = runs
+      .filter(r => r.agentSlug === a.slug)
+      .sort((x, y) => new Date(y.startedAt).getTime() - new Date(x.startedAt).getTime())[0];
+    return {
+      agent: a.slug,
+      name: a.name,
+      status: a.status,
+      last_run: latestRun?.completedAt || "never",
+      last_result: latestRun?.status || "no runs",
+      outputs: latestRun?.output?.length || 0,
+    };
+  });
+
+  // Persist the digest
+  const digest = {
+    generatedAt: now.toISOString(),
+    executive_summary: {
+      date: now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+      total_opportunities_tracked: samOpps.length,
+      high_value_opportunities: highValue.length,
+      sdvosb_opportunities: sdvosbOpps.length,
+      urgent_deadlines: urgentDeadlines.length,
+      proposal_briefs_generated: proposalBriefs.length,
+      strong_bid_recommendations: strongBids.length,
+      action_items_count: actionItems.length,
+    },
+    opportunity_intelligence: contractsOutput.find(o => o.type === "report")?.data || {},
+    proposal_pipeline: proposalReport?.data || {},
+    action_items: actionItems,
+    agent_status: agentStatus,
+  };
+
+  storage.add("daily_digests", { ...digest, id: `digest-${now.toISOString().split("T")[0]}` });
+
+  return digest;
+}
+
+/**
  * Execute an agent by slug
  */
 async function executeAgentBySlug(slug: string, agent: SisgAgent): Promise<AgentOutput[]> {
@@ -1355,6 +1738,36 @@ export const sisgAgents = {
       agents: deployed.length,
       nextRuns,
     };
+  },
+
+  /**
+   * Generate a comprehensive daily opportunity digest
+   * Runs contracts + proposals agents, aggregates into executive report
+   */
+  async getDailyDigest() {
+    return generateDailyDigest();
+  },
+
+  /**
+   * Get stored SAM.gov opportunities (persisted by contracts agent)
+   */
+  async getOpportunities(options?: { minScore?: number; setAside?: string; limit?: number }) {
+    let opps = storage.read("sam_opportunities") as any[];
+    if (options?.minScore) opps = opps.filter((o: any) => o.score >= options.minScore!);
+    if (options?.setAside) opps = opps.filter((o: any) => o.setAside === options.setAside);
+    opps.sort((a: any, b: any) => b.score - a.score);
+    if (options?.limit) opps = opps.slice(0, options.limit);
+    return opps;
+  },
+
+  /**
+   * Get past daily digests
+   */
+  async getDigestHistory(limit: number = 7) {
+    const digests = storage.read("daily_digests") as any[];
+    return digests
+      .sort((a: any, b: any) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime())
+      .slice(0, limit);
   },
 };
 

@@ -196,6 +196,49 @@ router.get("/api/admin/agents", adminAuth, async (req: Request, res: Response) =
 });
 
 /**
+ * GET /api/admin/agents/digest
+ * Generate and return a comprehensive daily opportunity digest
+ */
+router.get("/api/admin/agents/digest", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const digest = await sisgAgents.getDailyDigest();
+    res.json({ success: true, data: digest });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to generate daily digest" });
+  }
+});
+
+/**
+ * GET /api/admin/agents/opportunities
+ * Get stored SAM.gov opportunities with optional filtering
+ */
+router.get("/api/admin/agents/opportunities", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const minScore = req.query.minScore ? parseInt(req.query.minScore as string) : undefined;
+    const setAside = req.query.setAside as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const opps = await sisgAgents.getOpportunities({ minScore, setAside, limit });
+    res.json({ success: true, data: opps, count: opps.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch opportunities" });
+  }
+});
+
+/**
+ * GET /api/admin/agents/digest/history
+ * Get past daily digests
+ */
+router.get("/api/admin/agents/digest/history", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 7, 30);
+    const digests = await sisgAgents.getDigestHistory(limit);
+    res.json({ success: true, data: digests, count: digests.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch digest history" });
+  }
+});
+
+/**
  * GET /api/admin/agents/:slug
  */
 router.get("/api/admin/agents/:slug", adminAuth, async (req: Request, res: Response) => {

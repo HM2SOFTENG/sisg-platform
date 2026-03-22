@@ -386,9 +386,11 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
     const fromStr = from.toISOString().split("T")[0];
 
-    // Fetch from SAM.gov
+    // Fetch from SAM.gov (production endpoint, dates in MM/DD/YYYY)
     const naicsParam = naicsCodes[0];
-    const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=10&postedFrom=${fromStr}&naicsCode=${naicsParam}`;
+    const fromMDY = `${String(from.getMonth() + 1).padStart(2, "0")}/${String(from.getDate()).padStart(2, "0")}/${from.getFullYear()}`;
+    const toMDY = `${String(to.getMonth() + 1).padStart(2, "0")}/${String(to.getDate()).padStart(2, "0")}/${to.getFullYear()}`;
+    const url = `https://api.sam.gov/prod/opportunities/v2/search?api_key=${apiKey}&limit=10&postedFrom=${fromMDY}&postedTo=${toMDY}&naicsCode=${naicsParam}`;
 
     const response = await fetchWithTimeout(url, {}, 15000);
 
@@ -571,23 +573,42 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
     const pubStartDate = from.toISOString().split("T")[0];
     const pubEndDate = to.toISOString().split("T")[0];
 
-    // Fetch CVEs from NVD API
-    const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=10&pubStartDate=${pubStartDate}T00:00:00&pubEndDate=${pubEndDate}T23:59:59&cvssV3Severity=CRITICAL,HIGH`;
-
+    // Fetch CVEs from NVD API (two calls: CRITICAL and HIGH, since cvssV3Severity only accepts one value)
+    const severities = ["CRITICAL", "HIGH"];
     const nvdHeaders: Record<string, string> = {};
     const hasNvdKey = !!process.env.NVD_API_KEY;
     if (hasNvdKey) {
       nvdHeaders["apiKey"] = process.env.NVD_API_KEY!;
     }
-    const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 15000);
 
-    if (response?.ok) {
-      const data = await response.json() as any;
-      const cves = data.vulnerabilities || [];
+    let allVulnerabilities: any[] = [];
+    let apiError = false;
+    let lastStatus = "";
 
+    for (const severity of severities) {
+      const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=5&pubStartDate=${pubStartDate}T00:00:00&pubEndDate=${pubEndDate}T23:59:59&cvssV3Severity=${severity}`;
+      const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 15000);
+
+      if (response?.ok) {
+        const data = await response.json() as any;
+        allVulnerabilities = allVulnerabilities.concat(data.vulnerabilities || []);
+      } else {
+        apiError = true;
+        lastStatus = String(response?.status || "no response");
+      }
+    }
+
+    if (apiError && allVulnerabilities.length === 0) {
+      outputs.push({
+        type: "alert",
+        title: "NVD API Error",
+        message: `CVE check failed (status ${lastStatus}).${hasNvdKey ? " API key may be invalid." : " No API key configured."} Will retry next cycle.`,
+        severity: "warning",
+      });
+    } else {
       // Filter for keywords relevant to typical IT/DoD stack
       const keywords = ["linux", "windows", "node", "express", "sql", "database", "network", "ssh", "ssl", "crypto"];
-      const relevantCves = cves.filter((v: any) => {
+      const relevantCves = allVulnerabilities.filter((v: any) => {
         const desc = (v.cve?.descriptions?.[0]?.value || "").toLowerCase();
         return keywords.some(kw => desc.includes(kw));
       });
@@ -612,14 +633,6 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
           severity: "success",
         });
       }
-    } else {
-      const statusCode = response?.status || "no response";
-      outputs.push({
-        type: "alert",
-        title: "NVD API Error",
-        message: `CVE check failed (status ${statusCode}).${hasNvdKey ? " API key may be invalid." : " No API key configured."} Will retry next cycle.`,
-        severity: "warning",
-      });
     }
   } catch (error) {
     outputs.push({

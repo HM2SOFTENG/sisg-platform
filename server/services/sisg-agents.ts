@@ -368,7 +368,17 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
   const outputs: AgentOutput[] = [];
 
   try {
-    const apiKey = process.env.SAM_GOV_API_KEY || "DEMO_KEY";
+    const apiKey = process.env.SAM_GOV_API_KEY;
+    if (!apiKey) {
+      outputs.push({
+        type: "alert",
+        title: "SAM.gov API Check",
+        message: "SAM_GOV_API_KEY not configured. Add it to environment variables to enable contract monitoring.",
+        severity: "warning",
+      });
+      return outputs;
+    }
+
     const naicsCodes = agent.config.naicsCodes || ["541512", "541511"];
 
     // Calculate date range (last 7 days)
@@ -376,18 +386,18 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
     const fromStr = from.toISOString().split("T")[0];
 
-    // Fetch from SAM.gov (demo mode: limit results)
-    const naicsParam = naicsCodes[0]; // Use first NAICS code for demo
+    // Fetch from SAM.gov
+    const naicsParam = naicsCodes[0];
     const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=10&postedFrom=${fromStr}&naicsCode=${naicsParam}`;
 
-    const response = await fetchWithTimeout(url, {}, 8000);
+    const response = await fetchWithTimeout(url, {}, 15000);
 
     if (response?.ok) {
       const data = await response.json() as any;
       const opportunities = data.opportunitiesData || [];
 
       if (opportunities.length > 0) {
-        const newOppCount = Math.min(opportunities.length, 3); // Report top 3
+        const newOppCount = Math.min(opportunities.length, 3);
         outputs.push({
           type: "alert",
           title: "New SAM.gov Opportunities Found",
@@ -409,11 +419,12 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
         });
       }
     } else {
+      const statusCode = response?.status || "no response";
       outputs.push({
         type: "alert",
-        title: "SAM.gov API Check",
-        message: "Running in DEMO mode (limited data available)",
-        severity: "info",
+        title: "SAM.gov API Error",
+        message: `API returned status ${statusCode}. Check API key validity or try again later.`,
+        severity: "warning",
       });
     }
   } catch (error) {
@@ -564,10 +575,11 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
     const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=10&pubStartDate=${pubStartDate}T00:00:00&pubEndDate=${pubEndDate}T23:59:59&cvssV3Severity=CRITICAL,HIGH`;
 
     const nvdHeaders: Record<string, string> = {};
-    if (process.env.NVD_API_KEY) {
-      nvdHeaders["apiKey"] = process.env.NVD_API_KEY;
+    const hasNvdKey = !!process.env.NVD_API_KEY;
+    if (hasNvdKey) {
+      nvdHeaders["apiKey"] = process.env.NVD_API_KEY!;
     }
-    const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 8000);
+    const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 15000);
 
     if (response?.ok) {
       const data = await response.json() as any;
@@ -596,16 +608,17 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
         outputs.push({
           type: "notification",
           title: "CVE Check Complete",
-          message: "No critical vulnerabilities matching your tech stack in the last 24h.",
+          message: `No critical vulnerabilities matching your tech stack in the last 24h.${hasNvdKey ? "" : " (Using public API — add NVD_API_KEY for higher rate limits)"}`,
           severity: "success",
         });
       }
     } else {
+      const statusCode = response?.status || "no response";
       outputs.push({
-        type: "notification",
-        title: "CVE Monitoring",
-        message: "Running in DEMO mode (limited data available)",
-        severity: "info",
+        type: "alert",
+        title: "NVD API Error",
+        message: `CVE check failed (status ${statusCode}).${hasNvdKey ? " API key may be invalid." : " No API key configured."} Will retry next cycle.`,
+        severity: "warning",
       });
     }
   } catch (error) {

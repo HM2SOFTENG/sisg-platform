@@ -274,4 +274,37 @@ router.post("/api/admin/clawbot/test-connection", adminAuth, async (_req: Reques
   }
 });
 
+// ---- SSE ENDPOINT (EventSource fallback — ClawBot connects here for real-time push) ----
+router.get("/api/clawbot/stream", (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"] || req.query.key;
+  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // Nginx: disable buffering
+  res.flushHeaders();
+  res.write(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`);
+
+  // Send keepalive every 30s
+  const keepalive = setInterval(() => {
+    try { res.write(`: keepalive\n\n`); } catch { clearInterval(keepalive); }
+  }, 30000);
+
+  clawbot.registerSseClient(res);
+
+  req.on("close", () => clearInterval(keepalive));
+});
+
+// ---- CONNECTION STATUS (for dashboard — includes WS/SSE client counts) ----
+router.get("/api/admin/clawbot/connection", adminAuth, (_req: Request, res: Response) => {
+  const info = clawbot.getConnectionInfo();
+  res.json({
+    ...info,
+    wsClients: clawbot.getWsClientCount(),
+    sseClients: clawbot.getSseClientCount(),
+  });
+});
+
 export default router;

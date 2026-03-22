@@ -1,12 +1,18 @@
 {
   "name": "clawbot-agent",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "ClawBot agent service for Kamrui mini P2 — reports to SISG platform",
+  "description": "ClawBot agent — full-scope connection system for SISG platform",
   "main": "agent.js",
   "scripts": {
     "start": "node agent.js",
     "dev": "node --watch agent.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "author": "SISG",
   "license": "MIT"

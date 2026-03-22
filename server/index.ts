@@ -1,8 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
-import { createServer } from "http";
+import { createServer, IncomingMessage } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
 import { slack } from "./services/slack.js";
+import { clawbot } from "./services/clawbot.js";
 import adminRouter from "./routes/admin.js";
 import clawbotRouter from "./routes/clawbot.js";
 import { storage } from "./services/storage.js";
@@ -13,6 +15,27 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // WebSocket server for ClawBot real-time connections
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Upgrade handler for ClawBot WebSocket connections at /api/clawbot/ws
+  server.on("upgrade", (req: IncomingMessage, socket: any, head: Buffer) => {
+    if (req.url?.startsWith("/api/clawbot/ws")) {
+      const urlObj = new URL(req.url, `http://${req.headers.host}`);
+      const apiKey = urlObj.searchParams.get("key") || (req.headers["x-api-key"] as string);
+      if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        clawbot.registerWsClient(ws);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
 
   // Middleware
   app.use(express.json());

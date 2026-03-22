@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import { WebSocket } from "ws";
 import { storage } from "./storage.js";
 import { slack } from "./slack.js";
 
@@ -80,6 +81,11 @@ interface DirectConnection {
   challengeToken?: string;
   lastPingAt?: string;
 }
+
+// WebSocket connections from ClawBot (outbound from ClawBot, received here)
+let wsClients: Set<WebSocket> = new Set();
+// SSE clients (for EventSource-based fallback)
+let sseClients: Set<any> = new Set();
 
 let activeConnection: DirectConnection | null = null;
 let pendingChallenge: { token: string; expiresAt: number } | null = null;
@@ -223,6 +229,9 @@ export const clawbot = {
     };
     const saved = storage.add("bot_tasks", newTask);
 
+    // Push to real-time clients immediately
+    this.pushToClients({ type: "work", commands: [], tasks: [saved] });
+
     // Try to dispatch directly
     const dispatched = await tryDirect<{ accepted: boolean }>("/api/tasks", "post", saved);
     if (dispatched?.accepted) {
@@ -273,6 +282,9 @@ export const clawbot = {
       createdAt: new Date().toISOString(),
     };
     storage.add("bot_commands", command);
+
+    // Push to real-time clients immediately
+    this.pushToClients({ type: "work", commands: [command], tasks: [] });
 
     // Try direct first
     const result = await tryDirect<{ received: boolean }>("/api/commands", "post", command);
@@ -385,6 +397,84 @@ export const clawbot = {
     }
 
     return { commands, tasks };
+  },
+
+  // ---------------------------------------------------------------------------
+  // WEBSOCKET / SSE SERVER (ClawBot connects outbound to us)
+  // ---------------------------------------------------------------------------
+  registerWsClient(ws: WebSocket): void {
+    wsClients.add(ws);
+    directAvailable = true;
+    lastDirectSuccess = Date.now();
+    this.addLog({ level: "info", agent: "system", message: `WebSocket client connected (total: ${wsClients.size})` });
+
+    ws.on("message", (raw: Buffer) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === "heartbeat") {
+          this.processHeartbeat(msg.data || msg);
+        } else if (msg.type === "log") {
+          this.addLog(msg.data);
+        } else if (msg.type === "task:update" && msg.taskId) {
+          this.updateTask(msg.taskId, msg.data);
+        } else if (msg.type === "pong") {
+          if (activeConnection) activeConnection.lastPingAt = new Date().toISOString();
+        }
+      } catch {}
+    });
+
+    ws.on("close", () => {
+      wsClients.delete(ws);
+      if (wsClients.size === 0 && !activeConnection) {
+        directAvailable = false;
+      }
+      this.addLog({ level: "info", agent: "system", message: `WebSocket client disconnected (remaining: ${wsClients.size})` });
+    });
+
+    ws.on("error", () => wsClients.delete(ws));
+
+    // Send any pending work immediately on connect
+    this.pollPendingWork().then(work => {
+      if ((work.commands.length > 0 || work.tasks.length > 0) && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: "work", ...work }));
+      }
+    });
+  },
+
+  registerSseClient(res: any): void {
+    sseClients.add(res);
+    this.addLog({ level: "info", agent: "system", message: `SSE client connected (total: ${sseClients.size})` });
+    res.on("close", () => {
+      sseClients.delete(res);
+      this.addLog({ level: "info", agent: "system", message: `SSE client disconnected` });
+    });
+    // Send pending work immediately
+    this.pollPendingWork().then(work => {
+      if (work.commands.length > 0 || work.tasks.length > 0) {
+        res.write(`data: ${JSON.stringify({ type: "work", ...work })}\n\n`);
+      }
+    });
+  },
+
+  // Push a message to all connected real-time clients
+  pushToClients(payload: object): void {
+    const msg = JSON.stringify(payload);
+    Array.from(wsClients).forEach(ws => {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(msg);
+      }
+    });
+    Array.from(sseClients).forEach(res => {
+      try { res.write(`data: ${msg}\n\n`); } catch {}
+    });
+  },
+
+  getWsClientCount(): number {
+    return wsClients.size;
+  },
+
+  getSseClientCount(): number {
+    return sseClients.size;
   },
 
   // ---------------------------------------------------------------------------

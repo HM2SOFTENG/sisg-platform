@@ -1,4 +1,5 @@
 import axios from "axios";
+import crypto from "crypto";
 import { storage } from "./storage.js";
 import { slack } from "./slack.js";
 
@@ -71,15 +72,35 @@ const BOT_DIRECT_URL = process.env.CLAWBOT_URL || "http://localhost:4000";
 const BOT_API_KEY = process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026";
 const SLACK_BOT_CHANNEL = "software-development"; // fallback channel
 
+// Verified connection state
+interface DirectConnection {
+  url: string;
+  verifiedAt: string;
+  capabilities: string[];
+  challengeToken?: string;
+  lastPingAt?: string;
+}
+
+let activeConnection: DirectConnection | null = null;
+let pendingChallenge: { token: string; expiresAt: number } | null = null;
+
 // Track connection state
 let lastDirectSuccess = 0;
 let directAvailable = false;
 
 async function tryDirect<T>(path: string, method: "get" | "post" = "get", data?: any): Promise<T | null> {
+  // Use verified connection URL if available, otherwise fall back to env/default
+  const baseUrl = activeConnection?.url || BOT_DIRECT_URL;
+
+  // Don't even try if no verified connection and URL is localhost (can't work in production)
+  if (!activeConnection && baseUrl.includes("localhost")) {
+    return null;
+  }
+
   try {
     const resp = await axios({
       method,
-      url: `${BOT_DIRECT_URL}${path}`,
+      url: `${baseUrl}${path}`,
       data,
       headers: { "X-API-Key": BOT_API_KEY, "Content-Type": "application/json" },
       timeout: 5000,
@@ -88,7 +109,16 @@ async function tryDirect<T>(path: string, method: "get" | "post" = "get", data?:
     directAvailable = true;
     return resp.data;
   } catch {
-    directAvailable = false;
+    // If verified connection fails, mark it stale but don't immediately drop
+    if (activeConnection) {
+      const staleMs = Date.now() - new Date(activeConnection.lastPingAt || activeConnection.verifiedAt).getTime();
+      if (staleMs > 120000) { // 2 minutes with no successful contact
+        activeConnection = null;
+        directAvailable = false;
+      }
+    } else {
+      directAvailable = false;
+    }
     return null;
   }
 }
@@ -271,13 +301,107 @@ export const clawbot = {
   },
 
   // ---------------------------------------------------------------------------
+  // CONNECTION HANDSHAKE
+  // ---------------------------------------------------------------------------
+  // Initiate connection handshake — ClawBot calls this with its reachable URL
+  async initiateConnection(url: string, capabilities: string[]): Promise<{ challenge: string; expiresIn: number }> {
+    // Generate a random challenge token
+    let token: string;
+    try {
+      token = crypto.randomUUID() + '-' + Date.now();
+    } catch {
+      token = Math.random().toString(36).slice(2) + Date.now();
+    }
+    pendingChallenge = { token, expiresAt: Date.now() + 30000 }; // 30s to respond
+
+    this.addLog({ level: "info", agent: "system", message: `Connection request from ${url} — challenge issued` });
+
+    return { challenge: token, expiresIn: 30 };
+  },
+
+  // Verify the challenge — ClawBot echoes back the token from its own URL
+  async verifyConnection(url: string, challengeResponse: string, capabilities: string[]): Promise<{ verified: boolean; message: string }> {
+    if (!pendingChallenge) {
+      return { verified: false, message: "No pending challenge" };
+    }
+    if (Date.now() > pendingChallenge.expiresAt) {
+      pendingChallenge = null;
+      return { verified: false, message: "Challenge expired" };
+    }
+    if (challengeResponse !== pendingChallenge.token) {
+      pendingChallenge = null;
+      return { verified: false, message: "Challenge mismatch" };
+    }
+
+    // Challenge passed — now verify we can actually reach ClawBot
+    try {
+      const resp = await axios.get(`${url}/api/ping`, {
+        headers: { "X-API-Key": BOT_API_KEY },
+        timeout: 5000,
+      });
+      if (resp.data?.pong !== true) {
+        return { verified: false, message: "Ping verification failed — expected { pong: true }" };
+      }
+    } catch (err) {
+      return { verified: false, message: `Cannot reach ClawBot at ${url}/api/ping — ensure the URL is accessible from the platform` };
+    }
+
+    // Verified!
+    activeConnection = {
+      url,
+      verifiedAt: new Date().toISOString(),
+      capabilities,
+      lastPingAt: new Date().toISOString(),
+    };
+    pendingChallenge = null;
+    directAvailable = true;
+    lastDirectSuccess = Date.now();
+
+    this.addLog({ level: "info", agent: "system", message: `Direct API verified: ${url} (capabilities: ${capabilities.join(', ')})` });
+
+    return { verified: true, message: "Connection verified and active" };
+  },
+
+  // Disconnect
+  disconnect(): { disconnected: boolean } {
+    const wasActive = !!activeConnection;
+    activeConnection = null;
+    directAvailable = false;
+    this.addLog({ level: "info", agent: "system", message: "Direct API disconnected" });
+    return { disconnected: wasActive };
+  },
+
+  // Poll endpoint — ClawBot calls this to pick up pending commands/tasks
+  async pollPendingWork(): Promise<{ commands: any[]; tasks: any[] }> {
+    const commands = storage.read("bot_commands").filter((c: any) => !c.dispatched);
+    const tasks = (storage.read("bot_tasks") as BotTask[]).filter((t: any) => t.status === "queued");
+
+    // Mark commands as dispatched
+    commands.forEach((c: any) => storage.update("bot_commands", c.id, { dispatched: true, dispatchedAt: new Date().toISOString() }));
+
+    // Update active connection ping time
+    if (activeConnection) {
+      activeConnection.lastPingAt = new Date().toISOString();
+    }
+
+    return { commands, tasks };
+  },
+
+  // ---------------------------------------------------------------------------
   // CONNECTION INFO
   // ---------------------------------------------------------------------------
   getConnectionInfo() {
     return {
-      directUrl: BOT_DIRECT_URL,
+      directUrl: activeConnection?.url || BOT_DIRECT_URL,
       directAvailable,
+      directVerified: !!activeConnection,
       lastDirectSuccess: lastDirectSuccess > 0 ? new Date(lastDirectSuccess).toISOString() : "never",
+      activeConnection: activeConnection ? {
+        url: activeConnection.url,
+        verifiedAt: activeConnection.verifiedAt,
+        capabilities: activeConnection.capabilities,
+        lastPingAt: activeConnection.lastPingAt,
+      } : null,
       slackFallback: true,
       slackChannel: SLACK_BOT_CHANNEL,
     };

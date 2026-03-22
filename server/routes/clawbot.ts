@@ -1,3 +1,4 @@
+import axios from "axios";
 import express, { Router, Request, Response } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { clawbot } from "../services/clawbot.js";
@@ -193,6 +194,83 @@ router.get("/api/admin/clawbot/metrics", adminAuth, (_req: Request, res: Respons
     res.json(metrics);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch metrics" });
+  }
+});
+
+// ---- DIRECT API CONNECTION HANDSHAKE ----
+
+// Step 1: ClawBot initiates connection by providing its reachable URL
+router.post("/api/clawbot/connect", async (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"];
+  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  try {
+    const { url, capabilities } = req.body;
+    if (!url) return res.status(400).json({ error: "url is required" });
+    const result = await clawbot.initiateConnection(url, capabilities || []);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to initiate connection" });
+  }
+});
+
+// Step 2: ClawBot verifies the challenge
+router.post("/api/clawbot/verify", async (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"];
+  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  try {
+    const { url, challengeResponse, capabilities } = req.body;
+    if (!url || !challengeResponse) {
+      return res.status(400).json({ error: "url and challengeResponse are required" });
+    }
+    const result = await clawbot.verifyConnection(url, challengeResponse, capabilities || []);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to verify connection" });
+  }
+});
+
+// ClawBot disconnects cleanly
+router.post("/api/clawbot/disconnect", (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"];
+  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  const result = clawbot.disconnect();
+  res.json(result);
+});
+
+// ClawBot polls for pending work (commands + queued tasks)
+router.get("/api/clawbot/poll", (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"];
+  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  clawbot.pollPendingWork().then(work => res.json(work)).catch(() => res.status(500).json({ error: "Failed to poll" }));
+});
+
+// Admin: manually test connection from dashboard
+router.post("/api/admin/clawbot/test-connection", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const info = clawbot.getConnectionInfo();
+    if (!info.activeConnection) {
+      return res.json({ success: false, message: "No active direct connection. ClawBot must call /api/clawbot/connect first." });
+    }
+    // Try to ping ClawBot at its registered URL
+    const resp = await axios.get(`${info.activeConnection.url}/api/ping`, {
+      headers: { "X-API-Key": process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026" },
+      timeout: 5000,
+    });
+    if (resp.data?.pong === true) {
+      res.json({ success: true, message: "Direct connection verified", latency: `${resp.headers['x-response-time'] || 'N/A'}` });
+    } else {
+      res.json({ success: false, message: "Ping response invalid" });
+    }
+  } catch (error: any) {
+    res.json({ success: false, message: `Connection test failed: ${error.message}` });
   }
 });
 

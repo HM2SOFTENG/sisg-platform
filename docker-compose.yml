@@ -12,6 +12,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # ClawBot Direct API — set to ClawBot's reachable URL when available
+      # ClawBot self-registers via /api/clawbot/connect handshake, but this
+      # env var provides a default fallback URL for tryDirect() calls.
+      # CLAWBOT_URL: http://clawbot-host:4000
     env_file:
       - .env.production
     volumes:

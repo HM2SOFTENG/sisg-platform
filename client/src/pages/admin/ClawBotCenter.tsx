@@ -20,7 +20,20 @@ interface BotStatus {
   uptime: number;
   system: { cpu: number; memory: number; disk: number; hostname: string; platform: string };
   version: string;
-  connection: { directUrl: string; directAvailable: boolean; lastDirectSuccess: string; slackFallback: boolean; slackChannel: string };
+  connection: {
+    directUrl: string;
+    directAvailable: boolean;
+    directVerified: boolean;
+    lastDirectSuccess: string;
+    activeConnection: {
+      url: string;
+      verifiedAt: string;
+      capabilities: string[];
+      lastPingAt: string;
+    } | null;
+    slackFallback: boolean;
+    slackChannel: string;
+  };
 }
 
 interface BotAgent {
@@ -533,6 +546,34 @@ export default function ClawBotCenter() {
     }).finally(() => setSending(false));
   };
 
+  const handleTestConnection = async () => {
+    try {
+      const resp = await apiFetch("/api/admin/clawbot/test-connection", {
+        method: "POST",
+      });
+      if (resp.success) {
+        toast.success(`Direct connection verified! ${resp.latency ? `(${resp.latency})` : ''}`);
+        addActivityEvent({
+          type: "status",
+          severity: "success",
+          title: "Connection Test Passed",
+          description: resp.message,
+        });
+      } else {
+        toast.error(resp.message || "Connection test failed");
+        addActivityEvent({
+          type: "status",
+          severity: "warning",
+          title: "Connection Test Failed",
+          description: resp.message,
+        });
+      }
+      fetchAll();
+    } catch (e) {
+      toast.error("Failed to test connection");
+    }
+  };
+
   const handleCommandInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       sendCommand();
@@ -604,7 +645,7 @@ export default function ClawBotCenter() {
       case "terminal":
         return <CommandTerminal key={cardId} commandInput={commandInput} onInputChange={handleCommandInputChange} onInputKeyDown={handleCommandInputKeyDown} onSend={sendCommand} sending={sending} autocompleteOpen={autocompleteOpen} autocompleteMatches={autocompleteMatches} onAutocompleteSelect={(cmd) => { setCommandInput(cmd); setAutocompleteOpen(false); }} onQuickCommand={quickCommand} commandHistory={commandHistory} />;
       case "connection":
-        return <ConnectionCard key={cardId} status={status} />;
+        return <ConnectionPanel key={cardId} status={status} onTestConnection={handleTestConnection} />;
       default:
         return null;
     }
@@ -771,7 +812,7 @@ function DashboardCardWrapper({
     agents: "Agent Management",
     activity: "Activity Feed",
     terminal: "Command Terminal",
-    connection: "Connection Status",
+    connection: "Direct API Connection",
   };
 
   return (
@@ -1448,6 +1489,102 @@ function CommandTerminal({
           <div className="p-2 border border-[var(--border)] bg-[var(--border)]/30 font-mono text-[10px] text-gray-400">
             {commandHistory[0].command}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConnectionPanel({ status, onTestConnection }: {
+  status: BotStatus | null;
+  onTestConnection: () => void;
+}) {
+  if (!status) return null;
+  const conn = status.connection;
+
+  // Determine active mode
+  const mode = conn?.directVerified ? "direct" : conn?.directAvailable ? "polling" : "slack";
+  const modeColors: Record<string, string> = { direct: "#00e5a0", polling: "#0066ff", slack: "#f59e0b" };
+  const modeLabels: Record<string, string> = { direct: "Direct API", polling: "Polling", slack: "Slack Fallback" };
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Connection Mode Badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ backgroundColor: modeColors[mode] }}
+          />
+          <span className="text-sm font-mono font-bold" style={{ color: modeColors[mode] }}>
+            {modeLabels[mode]}
+          </span>
+        </div>
+        <button
+          onClick={onTestConnection}
+          className="px-3 py-1 text-[10px] font-mono uppercase border border-[var(--border)] bg-[var(--card)] hover:bg-[var(--border)] transition-colors rounded"
+        >
+          Test Connection
+        </button>
+      </div>
+
+      {/* Connection Details */}
+      <div className="space-y-2 text-[11px] font-mono">
+        {conn?.activeConnection ? (
+          <>
+            <div className="flex justify-between">
+              <span className="text-gray-500">URL</span>
+              <span className="text-[var(--foreground)] truncate ml-4 max-w-[200px]">{conn.activeConnection.url}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Verified</span>
+              <span className="text-[#00e5a0]">{new Date(conn.activeConnection.verifiedAt).toLocaleTimeString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Last Ping</span>
+              <span className="text-[var(--foreground)]">{conn.activeConnection.lastPingAt ? new Date(conn.activeConnection.lastPingAt).toLocaleTimeString() : '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Capabilities</span>
+              <span className="text-[var(--foreground)]">{conn.activeConnection.capabilities?.length || 0} registered</span>
+            </div>
+          </>
+        ) : (
+          <div className="p-3 border border-[var(--border)] bg-[var(--border)]/20 rounded text-center">
+            <div className="text-gray-400 mb-1">No direct connection</div>
+            <div className="text-[10px] text-gray-500">
+              ClawBot must call <code className="px-1 py-0.5 bg-[var(--border)] rounded">POST /api/clawbot/connect</code> to establish
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Communication Channels */}
+      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--border)]">
+        <div className="text-center p-2">
+          <div className={`text-[10px] font-mono uppercase mb-1 ${conn?.directVerified ? 'text-[#00e5a0]' : 'text-gray-500'}`}>
+            Direct
+          </div>
+          <div className={`w-3 h-3 rounded-full mx-auto ${conn?.directVerified ? 'bg-[#00e5a0]' : 'bg-gray-600'}`} />
+        </div>
+        <div className="text-center p-2">
+          <div className={`text-[10px] font-mono uppercase mb-1 ${conn?.directAvailable ? 'text-[#0066ff]' : 'text-gray-500'}`}>
+            Polling
+          </div>
+          <div className={`w-3 h-3 rounded-full mx-auto ${conn?.directAvailable ? 'bg-[#0066ff]' : 'bg-gray-600'}`} />
+        </div>
+        <div className="text-center p-2">
+          <div className="text-[10px] font-mono uppercase mb-1 text-[#f59e0b]">
+            Slack
+          </div>
+          <div className="w-3 h-3 rounded-full mx-auto bg-[#f59e0b]" />
+        </div>
+      </div>
+
+      {/* Last Direct Success */}
+      {conn?.lastDirectSuccess && conn.lastDirectSuccess !== "never" && (
+        <div className="text-[10px] text-gray-500 font-mono text-center">
+          Last direct success: {new Date(conn.lastDirectSuccess).toLocaleString()}
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import { clawbot } from "./services/clawbot.js";
 import adminRouter from "./routes/admin.js";
 import clawbotRouter from "./routes/clawbot.js";
 import agentsRouter from "./routes/sisg-agents.js";
+import gatewayRouter from "./routes/gateway.js";
 import { sisgAgents } from "./services/sisg-agents.js";
 import { storage } from "./services/storage.js";
 
@@ -143,6 +144,7 @@ async function startServer() {
   app.use(adminRouter);
   app.use(clawbotRouter);
   app.use(agentsRouter);
+  app.use(gatewayRouter);
 
   // Seed initial data if collections are empty
   const seedIfEmpty = (collection: string, data: any[]) => {

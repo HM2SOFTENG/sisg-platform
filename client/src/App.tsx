@@ -37,6 +37,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import AdminSettings from "./pages/admin/AdminSettings";
 import ClawBotCenter from "./pages/admin/ClawBotCenter";
 import SisgAgents from "./pages/admin/SisgAgents";
+import CommandPortal from "./pages/admin/CommandPortal";
 
 function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -77,6 +78,7 @@ function Router() {
       <Route path="/dashboard/time">{() => <ProtectedDashboard component={TimeTracking} />}</Route>
       <Route path="/dashboard/knowledge">{() => <ProtectedDashboard component={KnowledgeBase} />}</Route>
       <Route path="/dashboard/reports">{() => <ProtectedDashboard component={Reports} />}</Route>
+      <Route path="/dashboard/command">{() => <ProtectedDashboard component={CommandPortal} />}</Route>
       <Route path="/dashboard/agents">{() => <ProtectedDashboard component={SisgAgents} />}</Route>
       <Route path="/dashboard/clawbot">{() => <ProtectedDashboard component={ClawBotCenter} />}</Route>
       <Route path="/dashboard/settings">{() => <ProtectedDashboard component={AdminSettings} />}</Route>

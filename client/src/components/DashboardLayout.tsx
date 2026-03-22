@@ -40,6 +40,7 @@ const navSections: NavSection[] = [
     { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#00d4ff" },
   ]},
   { section: "System", items: [
+    { label: "Command Portal", href: "/dashboard/command", icon: Terminal, color: "#0066ff" },
     { label: "Agents", href: "/dashboard/agents", icon: Zap, color: "#00e5a0" },
     { label: "ClawBot", href: "/dashboard/clawbot", icon: Bot, color: "#8b5cf6" },
     { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },

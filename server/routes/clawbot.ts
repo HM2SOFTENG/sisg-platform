@@ -26,6 +26,9 @@ router.post("/api/clawbot/heartbeat", (req: Request, res: Response) => {
   if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
     return res.status(401).json({ error: "Invalid API key" });
   }
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: "Body must be a JSON object" });
+  }
   clawbot.processHeartbeat(req.body);
   res.json({ received: true, timestamp: new Date().toISOString() });
 });
@@ -166,7 +169,7 @@ router.post("/api/admin/clawbot/commands", adminAuth, async (req: Request, res: 
 // ---- LOGS ----
 router.get("/api/admin/clawbot/logs", adminAuth, (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 100;
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const level = req.query.level as string | undefined;
     const agent = req.query.agent as string | undefined;
     const logs = clawbot.getLogs(limit, level, agent);
@@ -182,7 +185,7 @@ router.post("/api/clawbot/logs", (req: Request, res: Response) => {
   if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
     return res.status(401).json({ error: "Invalid API key" });
   }
-  const entries = Array.isArray(req.body) ? req.body : [req.body];
+  const entries = Array.isArray(req.body) ? req.body.slice(0, 100) : [req.body]; // Cap at 100 entries per request
   const saved = entries.map((entry: any) => clawbot.addLog(entry));
   res.json({ received: saved.length, logs: saved });
 });
@@ -208,6 +211,8 @@ router.post("/api/clawbot/connect", async (req: Request, res: Response) => {
   try {
     const { url, capabilities } = req.body;
     if (!url) return res.status(400).json({ error: "url is required" });
+    if (typeof url !== 'string' || url.trim().length === 0) return res.status(400).json({ error: "url must be a non-empty string" });
+    if (capabilities && !Array.isArray(capabilities)) return res.status(400).json({ error: "capabilities must be an array" });
     const result = await clawbot.initiateConnection(url, capabilities || []);
     res.json(result);
   } catch (error) {

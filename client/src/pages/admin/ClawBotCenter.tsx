@@ -30,6 +30,8 @@ interface BotStatus {
       verifiedAt: string;
       capabilities: string[];
       lastPingAt: string;
+      wsClients?: number;
+      sseClients?: number;
     } | null;
     slackFallback: boolean;
     slackChannel: string;
@@ -269,12 +271,13 @@ export default function ClawBotCenter() {
   // ---- Fetch all data ----
   const fetchAll = useCallback(async () => {
     try {
-      const [s, a, t, l, m] = await Promise.all([
+      const [s, a, t, l, m, connInfo] = await Promise.all([
         apiFetch("/api/admin/clawbot/status"),
         apiFetch("/api/admin/clawbot/agents"),
         apiFetch("/api/admin/clawbot/tasks"),
         apiFetch("/api/admin/clawbot/logs?limit=50"),
         apiFetch("/api/admin/clawbot/metrics"),
+        apiFetch("/api/admin/clawbot/connection").catch(() => null),
       ]);
 
       const prevState = prevStateRef.current;
@@ -370,6 +373,11 @@ export default function ClawBotCenter() {
         });
       }
 
+      // Merge connection info with WS/SSE client counts into status
+      if (connInfo && s?.connection) {
+        s.connection.wsClients = connInfo.wsClients ?? 0;
+        s.connection.sseClients = connInfo.sseClients ?? 0;
+      }
       setStatus(s);
       setAgents(Array.isArray(a) ? a : []);
       setTasks(Array.isArray(t) ? t : []);
@@ -1500,12 +1508,19 @@ function ConnectionPanel({ status, onTestConnection }: {
   onTestConnection: () => void;
 }) {
   if (!status) return null;
-  const conn = status.connection;
+  const conn = status?.connection;
+  if (!conn) return (
+    <div className="p-4 text-center text-gray-500 text-sm font-mono">
+      Connection data unavailable
+    </div>
+  );
 
   // Determine active mode
-  const mode = conn?.directVerified ? "direct" : conn?.directAvailable ? "polling" : "slack";
-  const modeColors: Record<string, string> = { direct: "#00e5a0", polling: "#0066ff", slack: "#f59e0b" };
-  const modeLabels: Record<string, string> = { direct: "Direct API", polling: "Polling", slack: "Slack Fallback" };
+  const wsConnected = (conn?.wsClients ?? 0) > 0;
+  const sseConnected = (conn?.sseClients ?? 0) > 0;
+  const mode = wsConnected ? "websocket" : conn?.directVerified ? "direct" : sseConnected ? "sse" : conn?.directAvailable ? "polling" : "slack";
+  const modeColors: Record<string, string> = { websocket: "#00e5a0", direct: "#00e5a0", sse: "#0066ff", polling: "#f59e0b", slack: "#ef4444" };
+  const modeLabels: Record<string, string> = { websocket: "WebSocket (Real-Time)", direct: "Direct API (Verified)", sse: "SSE Stream", polling: "Polling", slack: "Slack Fallback" };
 
   return (
     <div className="p-4 space-y-4">
@@ -1534,7 +1549,7 @@ function ConnectionPanel({ status, onTestConnection }: {
           <>
             <div className="flex justify-between">
               <span className="text-gray-500">URL</span>
-              <span className="text-[var(--foreground)] truncate ml-4 max-w-[200px]">{conn.activeConnection.url}</span>
+              <span className="text-[var(--foreground)] truncate ml-4 max-w-[120px] sm:max-w-[200px]">{conn.activeConnection.url}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Verified</span>
@@ -1560,7 +1575,19 @@ function ConnectionPanel({ status, onTestConnection }: {
       </div>
 
       {/* Communication Channels */}
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--border)]">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-2 border-t border-[var(--border)]">
+        <div className="text-center p-2">
+          <div className={`text-[10px] font-mono uppercase mb-1 ${wsConnected ? 'text-[#00e5a0]' : 'text-gray-500'}`}>
+            WS
+          </div>
+          <div className={`w-3 h-3 rounded-full mx-auto ${wsConnected ? 'bg-[#00e5a0]' : 'bg-gray-600'}`} />
+        </div>
+        <div className="text-center p-2">
+          <div className={`text-[10px] font-mono uppercase mb-1 ${sseConnected ? 'text-[#0066ff]' : 'text-gray-500'}`}>
+            SSE
+          </div>
+          <div className={`w-3 h-3 rounded-full mx-auto ${sseConnected ? 'bg-[#0066ff]' : 'bg-gray-600'}`} />
+        </div>
         <div className="text-center p-2">
           <div className={`text-[10px] font-mono uppercase mb-1 ${conn?.directVerified ? 'text-[#00e5a0]' : 'text-gray-500'}`}>
             Direct
@@ -1568,16 +1595,16 @@ function ConnectionPanel({ status, onTestConnection }: {
           <div className={`w-3 h-3 rounded-full mx-auto ${conn?.directVerified ? 'bg-[#00e5a0]' : 'bg-gray-600'}`} />
         </div>
         <div className="text-center p-2">
-          <div className={`text-[10px] font-mono uppercase mb-1 ${conn?.directAvailable ? 'text-[#0066ff]' : 'text-gray-500'}`}>
-            Polling
+          <div className={`text-[10px] font-mono uppercase mb-1 ${conn?.directAvailable ? 'text-[#f59e0b]' : 'text-gray-500'}`}>
+            Poll
           </div>
-          <div className={`w-3 h-3 rounded-full mx-auto ${conn?.directAvailable ? 'bg-[#0066ff]' : 'bg-gray-600'}`} />
+          <div className={`w-3 h-3 rounded-full mx-auto ${conn?.directAvailable ? 'bg-[#f59e0b]' : 'bg-gray-600'}`} />
         </div>
         <div className="text-center p-2">
-          <div className="text-[10px] font-mono uppercase mb-1 text-[#f59e0b]">
+          <div className="text-[10px] font-mono uppercase mb-1 text-[#ef4444]">
             Slack
           </div>
-          <div className="w-3 h-3 rounded-full mx-auto bg-[#f59e0b]" />
+          <div className="w-3 h-3 rounded-full mx-auto bg-[#ef4444]" />
         </div>
       </div>
 

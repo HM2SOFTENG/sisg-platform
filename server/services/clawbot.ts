@@ -94,12 +94,37 @@ let pendingChallenge: { token: string; expiresAt: number } | null = null;
 let lastDirectSuccess = 0;
 let directAvailable = false;
 
+function isAllowedUrl(urlStr: string): boolean {
+  try {
+    const url = new URL(urlStr);
+    const hostname = url.hostname.toLowerCase();
+    // Block private/internal ranges
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      hostname.startsWith('169.254.') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function tryDirect<T>(path: string, method: "get" | "post" = "get", data?: any): Promise<T | null> {
   // Use verified connection URL if available, otherwise fall back to env/default
   const baseUrl = activeConnection?.url || BOT_DIRECT_URL;
 
-  // Don't even try if no verified connection and URL is localhost (can't work in production)
-  if (!activeConnection && baseUrl.includes("localhost")) {
+  // Don't even try if URL is not allowed (private/internal)
+  if (!activeConnection && !isAllowedUrl(baseUrl)) {
     return null;
   }
 
@@ -229,10 +254,7 @@ export const clawbot = {
     };
     const saved = storage.add("bot_tasks", newTask);
 
-    // Push to real-time clients immediately
-    this.pushToClients({ type: "work", commands: [], tasks: [saved] });
-
-    // Try to dispatch directly
+    // Try to dispatch directly first
     const dispatched = await tryDirect<{ accepted: boolean }>("/api/tasks", "post", saved);
     if (dispatched?.accepted) {
       storage.update("bot_tasks", saved.id, { status: "running", startedAt: new Date().toISOString() });
@@ -244,6 +266,8 @@ export const clawbot = {
           text: { type: "mrkdwn", text: `🤖 *ClawBot Task Queued*\n\`${task.command}\`\nPriority: ${task.priority}\nSource: ${task.source}` },
         }],
       });
+      // Push to real-time WS/SSE clients if direct dispatch didn't handle it
+      this.pushToClients({ type: "work", commands: [], tasks: [saved] });
     }
 
     return saved;
@@ -283,9 +307,6 @@ export const clawbot = {
     };
     storage.add("bot_commands", command);
 
-    // Push to real-time clients immediately
-    this.pushToClients({ type: "work", commands: [command], tasks: [] });
-
     // Try direct first
     const result = await tryDirect<{ received: boolean }>("/api/commands", "post", command);
     if (result?.received) {
@@ -305,6 +326,8 @@ export const clawbot = {
         }],
       });
       this.addLog({ level: "info", agent: "system", message: `Command sent (slack fallback): ${cmd.command}` });
+      // Push to real-time WS/SSE clients if direct dispatch didn't handle it
+      this.pushToClients({ type: "work", commands: [command], tasks: [] });
       return { sent: true, method: "slack" };
     } catch {
       this.addLog({ level: "error", agent: "system", message: `Failed to send command: ${cmd.command}` });
@@ -317,6 +340,11 @@ export const clawbot = {
   // ---------------------------------------------------------------------------
   // Initiate connection handshake — ClawBot calls this with its reachable URL
   async initiateConnection(url: string, capabilities: string[]): Promise<{ challenge: string; expiresIn: number }> {
+    // Reject if a challenge is already pending and not expired
+    if (pendingChallenge && Date.now() < pendingChallenge.expiresAt) {
+      return { challenge: "pending", expiresIn: Math.ceil((pendingChallenge.expiresAt - Date.now()) / 1000) };
+    }
+
     // Generate a random challenge token
     let token: string;
     try {
@@ -343,6 +371,11 @@ export const clawbot = {
     if (challengeResponse !== pendingChallenge.token) {
       pendingChallenge = null;
       return { verified: false, message: "Challenge mismatch" };
+    }
+
+    // SSRF protection: reject private/internal addresses
+    if (!isAllowedUrl(url)) {
+      return { verified: false, message: "URL rejected: private/internal addresses are not allowed" };
     }
 
     // Challenge passed — now verify we can actually reach ClawBot
@@ -378,7 +411,7 @@ export const clawbot = {
   disconnect(): { disconnected: boolean } {
     const wasActive = !!activeConnection;
     activeConnection = null;
-    directAvailable = false;
+    directAvailable = wsClients.size > 0; // Keep available if WS clients still connected
     this.addLog({ level: "info", agent: "system", message: "Direct API disconnected" });
     return { disconnected: wasActive };
   },
@@ -391,10 +424,7 @@ export const clawbot = {
     // Mark commands as dispatched
     commands.forEach((c: any) => storage.update("bot_commands", c.id, { dispatched: true, dispatchedAt: new Date().toISOString() }));
 
-    // Update active connection ping time
-    if (activeConnection) {
-      activeConnection.lastPingAt = new Date().toISOString();
-    }
+    // Note: polling is the fallback path — don't update direct connection ping time here
 
     return { commands, tasks };
   },
@@ -460,8 +490,12 @@ export const clawbot = {
   pushToClients(payload: object): void {
     const msg = JSON.stringify(payload);
     Array.from(wsClients).forEach(ws => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(msg);
+      try {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(msg);
+        }
+      } catch {
+        wsClients.delete(ws);
       }
     });
     Array.from(sseClients).forEach(res => {

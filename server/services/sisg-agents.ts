@@ -475,45 +475,60 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const highValue = scored.filter((s: any) => s._score >= 30);
     const medValue = scored.filter((s: any) => s._score >= 15 && s._score < 30);
 
-    // Persist opportunities to storage for proposals agent — extract ALL available fields
-    const storedOpps = scored.slice(0, 50).map((opp: any) => ({
-      id: opp.noticeId,
-      noticeId: opp.noticeId,
-      title: opp.title || "Untitled",
-      solicitationNumber: opp.solicitationNumber || "",
-      type: opp.type || opp.baseType || "Unknown",
-      postedDate: opp.postedDate || "",
-      responseDeadline: opp.responseDeadLine || null,
-      archiveDate: opp.archiveDate || null,
-      naicsCode: opp.naicsCode || "",
-      classificationCode: opp.classificationCode || "",
-      setAside: opp.typeOfSetAside || "",
-      setAsideDescription: opp.typeOfSetAsideDescription || "",
-      organization: opp.fullParentPathName || opp.department || "",
-      department: opp.department || opp.fullParentPathName?.split(".")?.[0] || "",
-      subTier: opp.subtierAgency || opp.fullParentPathName?.split(".")?.slice(1).join(".") || "",
-      office: opp.office || "",
-      placeOfPerformance: opp.placeOfPerformance?.state?.code || "",
-      placeOfPerformanceCity: opp.placeOfPerformance?.city?.name || "",
-      placeOfPerformanceCountry: opp.placeOfPerformance?.country?.code || "US",
-      awardAmount: opp.award?.amount || null,
-      awardDate: opp.award?.date || null,
-      awardNumber: opp.award?.number || null,
-      awardee: opp.award?.awardee?.name || null,
-      score: opp._score,
-      reasons: opp._reasons,
-      description: opp.description || "",
-      additionalInfo: opp.additionalInfoLink || null,
-      uiLink: opp.uiLink || "",
-      pointOfContact: opp.pointOfContact?.[0] || null,
-      additionalContacts: opp.pointOfContact?.slice(1) || [],
-      active: opp.active,
-      organizationType: opp.organizationType || "",
-      officeAddress: opp.officeAddress || null,
-      resourceLinks: opp.resourceLinks || [],
-      fetchedAt: now.toISOString(),
-    }));
-    storage.write("sam_opportunities", storedOpps);
+    // Persist opportunities to storage for proposals agent — only if we got new data
+    // If API failed but we have previous data, preserve it instead of overwriting with empty array
+    if (scored.length > 0) {
+      const storedOpps = scored.slice(0, 50).map((opp: any) => ({
+        id: opp.noticeId,
+        noticeId: opp.noticeId,
+        title: opp.title || "Untitled",
+        solicitationNumber: opp.solicitationNumber || "",
+        type: opp.type || opp.baseType || "Unknown",
+        postedDate: opp.postedDate || "",
+        responseDeadline: opp.responseDeadLine || null,
+        archiveDate: opp.archiveDate || null,
+        naicsCode: opp.naicsCode || "",
+        classificationCode: opp.classificationCode || "",
+        setAside: opp.typeOfSetAside || "",
+        setAsideDescription: opp.typeOfSetAsideDescription || "",
+        organization: opp.fullParentPathName || opp.department || "",
+        department: opp.department || opp.fullParentPathName?.split(".")?.[0] || "",
+        subTier: opp.subtierAgency || opp.fullParentPathName?.split(".")?.slice(1).join(".") || "",
+        office: opp.office || "",
+        placeOfPerformance: opp.placeOfPerformance?.state?.code || "",
+        placeOfPerformanceCity: opp.placeOfPerformance?.city?.name || "",
+        placeOfPerformanceCountry: opp.placeOfPerformance?.country?.code || "US",
+        awardAmount: opp.award?.amount || null,
+        awardDate: opp.award?.date || null,
+        awardNumber: opp.award?.number || null,
+        awardee: opp.award?.awardee?.name || null,
+        score: opp._score,
+        reasons: opp._reasons,
+        description: opp.description || "",
+        additionalInfo: opp.additionalInfoLink || null,
+        uiLink: opp.uiLink || "",
+        pointOfContact: opp.pointOfContact?.[0] || null,
+        additionalContacts: opp.pointOfContact?.slice(1) || [],
+        active: opp.active,
+        organizationType: opp.organizationType || "",
+        officeAddress: opp.officeAddress || null,
+        resourceLinks: opp.resourceLinks || [],
+        fetchedAt: now.toISOString(),
+      }));
+      storage.write("sam_opportunities", storedOpps);
+    } else if (fetchErrors.length > 0) {
+      // API calls failed — don't overwrite stored opportunities, just log the failure
+      outputs.push({
+        type: "alert",
+        title: "SAM.gov API Temporarily Unavailable",
+        message: `Failed to fetch new opportunities due to API errors. Using previously cached opportunities instead to ensure proposals can be generated.`,
+        severity: "warning",
+        data: {
+          api_errors: fetchErrors,
+          note: "This is expected if SAM.gov API is down. Cached data will be reused.",
+        },
+      });
+    }
 
     // Build comprehensive report
     outputs.push({

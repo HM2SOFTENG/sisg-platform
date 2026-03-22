@@ -122,7 +122,7 @@ export default function Financials() {
       {
         label: "Total Revenue",
         value: `$${(data.totalRevenue / 1000000).toFixed(1)}M`,
-        change: "+12.5%",
+        change: "—",
         icon: <DollarSign className="w-5 h-5" />,
         color: "from-emerald-500 to-cyan-500",
         isPositive: true,
@@ -130,7 +130,7 @@ export default function Financials() {
       {
         label: "Total Expenses",
         value: `$${(data.totalExpenses / 1000000).toFixed(1)}M`,
-        change: "-3.2%",
+        change: "—",
         icon: <TrendingDown className="w-5 h-5" />,
         color: "from-orange-500 to-red-500",
         isPositive: true,
@@ -138,7 +138,7 @@ export default function Financials() {
       {
         label: "Net Profit",
         value: `$${(data.netProfit / 1000000).toFixed(1)}M`,
-        change: "+18.3%",
+        change: "—",
         icon: <TrendingUp className="w-5 h-5" />,
         color: "from-purple-500 to-emerald-500",
         isPositive: true,
@@ -146,7 +146,7 @@ export default function Financials() {
       {
         label: "Profit Margin",
         value: `${data.profitMargin.toFixed(1)}%`,
-        change: "+2.1%",
+        change: "—",
         icon: <PieChartIcon className="w-5 h-5" />,
         color: "from-blue-500 to-cyan-500",
         isPositive: true,

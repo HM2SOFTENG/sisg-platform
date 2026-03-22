@@ -1,32 +1,17 @@
 /* Dashboard Overview — Sentinel Sharp v2 */
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, Shield, Users, DollarSign, AlertTriangle, CheckCircle2, Clock, ArrowUpRight, Terminal } from "lucide-react";
+import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 
-const revenueData = [
-  { month: "Oct", value: 1.8 }, { month: "Nov", value: 2.1 }, { month: "Dec", value: 1.9 },
-  { month: "Jan", value: 2.4 }, { month: "Feb", value: 2.8 }, { month: "Mar", value: 3.2 },
-];
-const pipelineData = [
-  { name: "Cybersecurity", value: 42, color: "#0066ff" },
-  { name: "Cloud", value: 28, color: "#8b5cf6" },
-  { name: "Software", value: 18, color: "#00d4ff" },
-  { name: "Consulting", value: 12, color: "#00e5a0" },
-];
-const activityFeed = [
-  { type: "contract", msg: "DoD CMMC Assessment contract awarded — $2.4M", time: "2h ago", color: "#00e5a0" },
-  { type: "alert", msg: "Critical vulnerability detected on client network", time: "4h ago", color: "#ff3b3b" },
-  { type: "hire", msg: "New hire: Senior Cloud Architect onboarded", time: "6h ago", color: "#0066ff" },
-  { type: "cert", msg: "ISO 27001 annual audit completed — passed", time: "1d ago", color: "#00d4ff" },
-  { type: "proposal", msg: "GSA Schedule proposal submitted — $5.8M", time: "2d ago", color: "#ffb800" },
-];
-const kpis = [
-  { label: "Revenue YTD", value: "$14.2M", delta: "+18%", icon: DollarSign, color: "#00e5a0" },
-  { label: "Active Contracts", value: "23", delta: "+3", icon: Shield, color: "#0066ff" },
-  { label: "Team Size", value: "147", delta: "+12", icon: Users, color: "#00d4ff" },
-  { label: "Win Rate", value: "68%", delta: "+5%", icon: TrendingUp, color: "#ffb800" },
-];
+const SkeletonLoader = () => (
+  <div className="animate-pulse space-y-2">
+    <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+    <div className="h-4 bg-gray-700 rounded"></div>
+  </div>
+);
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -41,6 +26,91 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
+  const [kpis, setKpis] = useState<any[]>([]);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [pipelineData, setPipelineData] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [loadingKpis, setLoadingKpis] = useState(true);
+  const [loadingRevenue, setLoadingRevenue] = useState(true);
+  const [loadingPipeline, setLoadingPipeline] = useState(true);
+  const [loadingActivity, setLoadingActivity] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem("sisg_admin_token");
+      if (!token) {
+        toast.error("Authentication token not found");
+        return;
+      }
+
+      try {
+        // Fetch stats for KPIs
+        setLoadingKpis(true);
+        const statsRes = await fetch("/api/admin/stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          const kpiArray = [
+            { label: "Revenue YTD", value: statsData.revenueYtd || "$0", delta: statsData.revenueDelta || "+0%", icon: DollarSign, color: "#00e5a0" },
+            { label: "Active Contracts", value: statsData.activeContracts || "0", delta: `+${statsData.contractsDelta || 0}`, icon: Shield, color: "#0066ff" },
+            { label: "Team Size", value: statsData.teamSize || "0", delta: `+${statsData.teamDelta || 0}`, icon: Users, color: "#00d4ff" },
+            { label: "Win Rate", value: statsData.winRate || "0%", delta: `+${statsData.winRateDelta || 0}%`, icon: TrendingUp, color: "#ffb800" },
+          ];
+          setKpis(kpiArray);
+        }
+        setLoadingKpis(false);
+
+        // Fetch revenue data
+        setLoadingRevenue(true);
+        const revRes = await fetch("/api/admin/stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (revRes.ok) {
+          const revData = await revRes.json();
+          setRevenueData(revData.revenueData || []);
+        }
+        setLoadingRevenue(false);
+
+        // Fetch pipeline data
+        setLoadingPipeline(true);
+        const pipRes = await fetch("/api/admin/stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (pipRes.ok) {
+          const pipData = await pipRes.json();
+          const pipeline = (pipData.pipelineData || []).map((d: any) => ({
+            name: d.name,
+            value: d.value,
+            color: d.color || "#0066ff",
+          }));
+          setPipelineData(pipeline);
+        }
+        setLoadingPipeline(false);
+
+        // Fetch activity feed
+        setLoadingActivity(true);
+        const actRes = await fetch("/api/admin/activity", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (actRes.ok) {
+          const actData = await actRes.json();
+          setActivityFeed(actData.activities || []);
+        }
+        setLoadingActivity(false);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+        toast.error("Failed to load dashboard data");
+        setLoadingKpis(false);
+        setLoadingRevenue(false);
+        setLoadingPipeline(false);
+        setLoadingActivity(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <DashboardLayout title="Overview">
       <div className="mb-6">
@@ -52,20 +122,32 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        {kpis.map((kpi, i) => (
-          <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.4 }}>
-            <div className="tech-card p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-8 h-8 flex items-center justify-center" style={{ background: kpi.color + "15", border: `1px solid ${kpi.color}30` }}>
-                  <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
-                </div>
-                <span className="text-[10px] font-mono font-bold" style={{ color: kpi.color }}>{kpi.delta}</span>
+        {loadingKpis ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.4 }}>
+              <div className="tech-card p-4">
+                <SkeletonLoader />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-white mb-0.5" style={{ fontFamily: "Sora, sans-serif" }}>{kpi.value}</div>
-              <div className="text-gray-500 text-xs font-mono">{kpi.label}</div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))
+        ) : kpis.length === 0 ? (
+          <div className="col-span-2 lg:col-span-4 tech-card p-4 text-center text-gray-500">No KPI data available</div>
+        ) : (
+          kpis.map((kpi, i) => (
+            <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.4 }}>
+              <div className="tech-card p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-8 h-8 flex items-center justify-center" style={{ background: kpi.color + "15", border: `1px solid ${kpi.color}30` }}>
+                    <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold" style={{ color: kpi.color }}>{kpi.delta}</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-white mb-0.5" style={{ fontFamily: "Sora, sans-serif" }}>{kpi.value}</div>
+                <div className="text-gray-500 text-xs font-mono">{kpi.label}</div>
+              </div>
+            </motion.div>
+          ))
+        )}
       </div>
 
       {/* Charts Row */}
@@ -79,44 +161,58 @@ export default function Dashboard() {
             </div>
             <span className="text-[10px] font-mono text-[#00e5a0] border border-[#00e5a0]/30 bg-[#00e5a0]/8 px-2 py-1">+18% YoY</span>
           </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0066ff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#0066ff" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fill: "rgba(107,114,128,1)", fontSize: 11, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "rgba(107,114,128,1)", fontSize: 11, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="value" stroke="#0066ff" strokeWidth={2} fill="url(#revGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {loadingRevenue ? (
+            <div className="h-[180px] flex items-center justify-center text-gray-500">Loading chart...</div>
+          ) : revenueData.length === 0 ? (
+            <div className="h-[180px] flex items-center justify-center text-gray-500">No revenue data available</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={revenueData}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0066ff" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#0066ff" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fill: "rgba(107,114,128,1)", fontSize: 11, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(107,114,128,1)", fontSize: 11, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="value" stroke="#0066ff" strokeWidth={2} fill="url(#revGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Pipeline Mix */}
         <div className="tech-card p-5">
           <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Pipeline Mix</div>
           <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>By Service Line</div>
-          <ResponsiveContainer width="100%" height={130}>
-            <PieChart>
-              <Pie data={pipelineData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
-                {pipelineData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-1.5 mt-2">
-            {pipelineData.map((d) => (
-              <div key={d.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 flex-shrink-0" style={{ background: d.color }} />
-                  <span className="text-gray-400 text-xs font-mono">{d.name}</span>
-                </div>
-                <span className="text-white text-xs font-mono font-bold">{d.value}%</span>
+          {loadingPipeline ? (
+            <div className="h-[130px] flex items-center justify-center text-gray-500">Loading chart...</div>
+          ) : pipelineData.length === 0 ? (
+            <div className="h-[130px] flex items-center justify-center text-gray-500">No pipeline data available</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={pipelineData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
+                    {pipelineData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-2">
+                {pipelineData.map((d) => (
+                  <div key={d.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 flex-shrink-0" style={{ background: d.color }} />
+                      <span className="text-gray-400 text-xs font-mono">{d.name}</span>
+                    </div>
+                    <span className="text-white text-xs font-mono font-bold">{d.value}%</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -126,19 +222,29 @@ export default function Dashboard() {
           <Terminal className="w-4 h-4 text-[#0066ff]" />
           <div className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Activity Feed</div>
         </div>
-        <div className="space-y-3">
-          {activityFeed.map((item, i) => (
-            <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06, duration: 0.3 }}>
-              <div className="flex items-start gap-3">
-                <div className="w-1.5 h-1.5 mt-1.5 flex-shrink-0" style={{ background: item.color }} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-gray-300 text-sm leading-relaxed">{item.msg}</div>
+        {loadingActivity ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonLoader key={i} />
+            ))}
+          </div>
+        ) : activityFeed.length === 0 ? (
+          <div className="text-center text-gray-500 py-4">No activity data available</div>
+        ) : (
+          <div className="space-y-3">
+            {activityFeed.map((item, i) => (
+              <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06, duration: 0.3 }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 mt-1.5 flex-shrink-0" style={{ background: item.color || "#0066ff" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-300 text-sm leading-relaxed">{item.msg || item.message}</div>
+                  </div>
+                  <div className="text-gray-600 text-[10px] font-mono flex-shrink-0">{item.time || "recently"}</div>
                 </div>
-                <div className="text-gray-600 text-[10px] font-mono flex-shrink-0">{item.time}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

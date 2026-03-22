@@ -176,8 +176,6 @@ router.get("/api/admin/agents/runs/all", adminAuth, async (req: Request, res: Re
   }
 });
 
-// ---- PARAMETERIZED ROUTES ----
-
 /**
  * GET /api/admin/agents
  * List all agents with optional ?category filter
@@ -237,6 +235,8 @@ router.get("/api/admin/agents/digest/history", adminAuth, async (req: Request, r
     res.status(500).json({ success: false, error: "Failed to fetch digest history" });
   }
 });
+
+// ---- PARAMETERIZED ROUTES (must come AFTER non-parameterized routes) ----
 
 /**
  * GET /api/admin/agents/:slug

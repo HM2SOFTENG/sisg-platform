@@ -72,8 +72,12 @@ jobs:
             # Navigate to app directory
             cd /app/sisg-platform
 
-            # Stop running container
+            # Stop running containers
             docker-compose down || true
+
+            # Stop system nginx if running (port 80 conflict with Docker nginx)
+            sudo systemctl stop nginx 2>/dev/null || true
+            sudo systemctl disable nginx 2>/dev/null || true
 
             # Pull latest code (needed for docker-compose.yml and .env generation)
             git fetch origin
@@ -116,7 +120,7 @@ jobs:
 
             # Verify deployment via API health endpoint
             echo "Running health checks..."
-            curl -sf --max-time 10 http://localhost:3000/api/health | grep -q '"status":"ok"' || exit 1
+            curl -sf --max-time 10 http://localhost/api/health | grep -q '"status":"ok"' || exit 1
 
             # Clean up old images to save disk space
             docker image prune -f

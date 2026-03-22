@@ -6,7 +6,7 @@
                scan lines, data-stream flows, glitch pulses
    ============================================================ */
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   Shield, Server, Cloud, ArrowRight, ChevronRight,
@@ -22,7 +22,7 @@ import AnimatedCounter from "@/components/AnimatedCounter";
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663460303717/hspgRzBLruNChMPAw2LvPu/sisg-hero-bg-dbtAksWhkw82WiymmhNuai.webp";
 const DASHBOARD_IMG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663460303717/hspgRzBLruNChMPAw2LvPu/sisg-dashboard-preview-Qmvsw75uQ79J7mvdPd4Rt5.webp";
 
-const stats = [
+const DEFAULT_STATS = [
   { value: 47, suffix: "+", label: "Active Contracts", icon: FileCheck, color: "#0066ff" },
   { value: 120, suffix: "+", label: "Team Members", icon: Users, color: "#00d4ff" },
   { value: 12, suffix: "", label: "Certifications", icon: Award, color: "#00e5a0" },
@@ -96,6 +96,34 @@ export default function Home() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+
+  const [stats, setStats] = useState(DEFAULT_STATS);
+  const [teamUtilization, setTeamUtilization] = useState<number | null>(null);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch("/api/admin/stats");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats && Array.isArray(data.stats)) {
+            setStats(data.stats);
+          }
+          if (data.teamUtilization !== undefined) {
+            setTeamUtilization(data.teamUtilization);
+          }
+          if (data.monthlyRevenue !== undefined) {
+            setMonthlyRevenue(data.monthlyRevenue);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        // Keep defaults on error
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[oklch(0.07_0.025_255)] overflow-x-hidden">
@@ -356,36 +384,40 @@ export default function Home() {
                 </div>
               </div>
               {/* Floating stat cards */}
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -bottom-4 -left-4 sm:-left-8 glass-card border border-[#0066ff]/30 p-3 sm:p-4 hidden sm:block"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-[#0066ff]/15 flex items-center justify-center">
-                    <Activity className="w-4 h-4 text-[#0066ff]" />
+              {teamUtilization !== null && (
+                <motion.div
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute -bottom-4 -left-4 sm:-left-8 glass-card border border-[#0066ff]/30 p-3 sm:p-4 hidden sm:block"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 bg-[#0066ff]/15 flex items-center justify-center">
+                      <Activity className="w-4 h-4 text-[#0066ff]" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-lg" style={{ fontFamily: 'Sora, sans-serif' }}>{teamUtilization}%</div>
+                      <div className="text-gray-500 text-xs font-mono">Team Utilization</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-white font-bold text-lg" style={{ fontFamily: 'Sora, sans-serif' }}>87%</div>
-                    <div className="text-gray-500 text-xs font-mono">Team Utilization</div>
+                </motion.div>
+              )}
+              {monthlyRevenue !== null && (
+                <motion.div
+                  animate={{ y: [0, 8, 0] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                  className="absolute -top-4 -right-4 sm:-right-8 glass-card border border-[#00e5a0]/30 p-3 sm:p-4 hidden sm:block"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 bg-[#00e5a0]/15 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-[#00e5a0]" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-lg" style={{ fontFamily: 'Sora, sans-serif' }}>{monthlyRevenue}</div>
+                      <div className="text-gray-500 text-xs font-mono">Monthly Revenue</div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, 8, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -top-4 -right-4 sm:-right-8 glass-card border border-[#00e5a0]/30 p-3 sm:p-4 hidden sm:block"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-[#00e5a0]/15 flex items-center justify-center">
-                    <DollarSign className="w-4 h-4 text-[#00e5a0]" />
-                  </div>
-                  <div>
-                    <div className="text-white font-bold text-lg" style={{ fontFamily: 'Sora, sans-serif' }}>$2.1M</div>
-                    <div className="text-gray-500 text-xs font-mono">Monthly Revenue</div>
-                  </div>
-                </div>
-              </motion.div>
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </div>

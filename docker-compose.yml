@@ -7,8 +7,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: sisg-platform
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -24,6 +24,18 @@ services:
     # Healthcheck is defined in Dockerfile (single source of truth).
     # Do NOT add a healthcheck block here — compose overrides Dockerfile
     # HEALTHCHECK and has caused stale config issues in the past.
+
+  nginx:
+    image: nginx:alpine
+    container_name: sisg-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
 
   # Optional: PostgreSQL (if using database)
   # postgres:

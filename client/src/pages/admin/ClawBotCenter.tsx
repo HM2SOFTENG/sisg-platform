@@ -361,7 +361,17 @@ export default function ClawBotCenter() {
       setAgents(Array.isArray(a) ? a : []);
       setTasks(Array.isArray(t) ? t : []);
       setLogs(Array.isArray(l) ? l : []);
-      setMetrics(m);
+      setMetrics(m && typeof m === "object" ? {
+        totalTasks: m.totalTasks ?? 0,
+        tasksLast24h: m.tasksLast24h ?? 0,
+        completedLast24h: m.completedLast24h ?? 0,
+        failedLast24h: m.failedLast24h ?? 0,
+        queuedNow: m.queuedNow ?? 0,
+        runningNow: m.runningNow ?? 0,
+        errorsLast24h: m.errorsLast24h ?? 0,
+        activeAgents: m.activeAgents ?? 0,
+        totalAgents: m.totalAgents ?? 0,
+      } : null);
 
       prevStateRef.current = { status: s, tasks: Array.isArray(t) ? t : [], logs: Array.isArray(l) ? l : [] };
     } catch (e) {
@@ -916,8 +926,8 @@ function GaugeCard({
 function MetricsCard({ metrics, tasks }: { metrics: Metrics | null; tasks: BotTask[] }) {
   if (!metrics) return null;
 
-  const successRate = metrics.tasksLast24h > 0
-    ? Math.round((metrics.completedLast24h / metrics.tasksLast24h) * 100)
+  const successRate = (metrics.tasksLast24h ?? 0) > 0
+    ? Math.round(((metrics.completedLast24h ?? 0) / metrics.tasksLast24h) * 100)
     : 0;
 
   // Calculate hourly task distribution (last 24 hours)
@@ -936,14 +946,14 @@ function MetricsCard({ metrics, tasks }: { metrics: Metrics | null; tasks: BotTa
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <MetricBox label="Success Rate" value={`${successRate}%`} color="#00e5a0" />
         <MetricBox label="Avg Completion" value="2.3s" color="#0066ff" />
-        <MetricBox label="Failed Tasks" value={String(metrics.failedLast24h)} color={metrics.failedLast24h > 0 ? "#ff4444" : "#00e5a0"} />
+        <MetricBox label="Failed Tasks" value={String(metrics.failedLast24h ?? 0)} color={(metrics.failedLast24h ?? 0) > 0 ? "#ff4444" : "#00e5a0"} />
       </div>
 
       {/* Mini sparkline using text-based visualization */}
       <div className="p-3 border border-[var(--border)] bg-[var(--border)]/30">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-mono text-gray-500 uppercase">24h Task Distribution</span>
-          <span className="text-[10px] font-mono text-gray-600">{metrics.tasksLast24h} tasks</span>
+          <span className="text-[10px] font-mono text-gray-600">{metrics.tasksLast24h ?? 0} tasks</span>
         </div>
         <div className="flex items-end justify-between h-12 gap-1">
           {hourlyData.map((data, i) => (

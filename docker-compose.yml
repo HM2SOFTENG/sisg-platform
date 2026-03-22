@@ -17,12 +17,9 @@ services:
     volumes:
       - sisg-data:/app/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {let d=''; r.on('data',c=>d+=c); r.on('end',()=>{try{const j=JSON.parse(d);if(j.status!=='ok')process.exit(1);}catch{process.exit(1);}});}).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    # Healthcheck is defined in Dockerfile (single source of truth).
+    # Do NOT add a healthcheck block here — compose overrides Dockerfile
+    # HEALTHCHECK and has caused stale config issues in the past.
 
   # Optional: PostgreSQL (if using database)
   # postgres:

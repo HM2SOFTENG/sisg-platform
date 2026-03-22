@@ -387,40 +387,67 @@ function ClawBotChat({ gatewayOnline, agents }: { gatewayOnline: boolean; agents
     setMessages((prev) => [...prev, userMsg, pendingMsg]);
     setSending(true);
 
-    try {
-      // Try gateway chat first
-      const res = await apiFetch("/api/admin/gateway/chat", {
-        method: "POST",
-        body: JSON.stringify({ message: msg, context: { agent: "clawbot" } }),
-      });
+    // Try handling commands locally first for instant feedback
+    const lower = msg.toLowerCase();
+    let reply = "";
 
-      const reply = res?.response || res?.data?.response || res?.error || "No response from gateway";
-      setMessages((prev) =>
-        prev.map((m) => m.id === pendingMsg.id ? { ...m, content: reply, pending: false } : m)
+    if (lower.includes("run all") || lower.includes("deploy all")) {
+      try {
+        await apiFetch("/api/admin/agents/deploy-all", { method: "POST" });
+        reply = "✅ All agents deployed and running. They'll execute on their configured schedules. Check the Agent Grid above for live status.";
+      } catch { reply = "⚠️ Failed to deploy agents. Check if you're authenticated."; }
+    } else if (lower.match(/^run\s+/i) || lower.match(/^deploy\s+/i)) {
+      const agentName = msg.replace(/^(run|deploy)\s+/i, "").trim().toLowerCase();
+      const matched = agents.find((a) =>
+        a.slug.includes(agentName) || a.name.toLowerCase().includes(agentName) || a.handle.toLowerCase().includes(agentName)
       );
-    } catch (err: any) {
-      // Fallback: handle commands locally
-      let fallbackReply = "Gateway unreachable. ";
-      const lower = msg.toLowerCase();
-
-      if (lower.includes("run all")) {
+      if (matched) {
         try {
-          await apiFetch("/api/admin/agents/deploy-all", { method: "POST" });
-          fallbackReply = "✅ Deployed all agents via local API. They'll begin executing on schedule.";
-        } catch { fallbackReply += "Failed to run agents."; }
-      } else if (lower.includes("health") || lower.includes("status")) {
-        try {
-          const h = await apiFetch("/api/admin/gateway/health");
-          fallbackReply = `Gateway: ${h.status || "unknown"} | OpenClaw: ${h.openclawConnected ? "connected" : "offline"} | Active Tasks: ${h.activeTasks || 0} | Uptime: ${formatUptime(h.uptime || 0)}`;
-        } catch { fallbackReply += "Cannot reach gateway for health check."; }
+          await apiFetch(`/api/admin/agents/${matched.slug}/run`, { method: "POST" });
+          reply = `✅ Started **${matched.name}** (${matched.handle}). Watch the activity feed for results.`;
+        } catch { reply = `⚠️ Failed to run ${matched.name}.`; }
       } else {
-        fallbackReply += "I can still run agents and check local status. Try specific commands.";
+        reply = `❓ No agent found matching "${agentName}". Available: ${agents.map((a) => a.name).join(", ")}`;
       }
-
-      setMessages((prev) =>
-        prev.map((m) => m.id === pendingMsg.id ? { ...m, content: fallbackReply, pending: false } : m)
-      );
+    } else if (lower.includes("stop all")) {
+      try {
+        await apiFetch("/api/admin/agents/stop-all", { method: "POST" });
+        reply = "⏹ All agents stopped.";
+      } catch { reply = "⚠️ Failed to stop agents."; }
+    } else if (lower.includes("health") || lower.includes("status")) {
+      try {
+        const h = await apiFetch("/api/admin/gateway/health");
+        if (h?.error) {
+          reply = `⚠️ Gateway offline — ${h.error.substring(0, 120)}...\n\nLocal agents are still functional. The Kamrui gateway may need to be restarted (pm2 restart sisg-gateway).`;
+        } else {
+          reply = `🟢 Gateway: ${h.status || "ok"}\n🤖 OpenClaw: ${h.openclawConnected ? "connected" : "offline"}\n⚡ Active Tasks: ${h.activeTasks || 0}\n⏱ Uptime: ${formatUptime(h.uptime || 0)}`;
+        }
+      } catch { reply = "⚠️ Cannot reach gateway. The Kamrui may be offline. Local agent operations still work."; }
+    } else if (lower.includes("agent") && (lower.includes("list") || lower.includes("show") || lower.includes("status"))) {
+      const deployed = agents.filter((a) => a.status === "deployed");
+      const stopped = agents.filter((a) => a.status !== "deployed");
+      reply = `📋 **Agent Status**\n\n🟢 Deployed (${deployed.length}): ${deployed.map((a) => a.name).join(", ") || "none"}\n\n🔴 Stopped (${stopped.length}): ${stopped.map((a) => a.name).join(", ") || "none"}\n\nTotal runs: ${agents.reduce((s, a) => s + a.totalRuns, 0)} | Errors: ${agents.reduce((s, a) => s + a.errorCount, 0)}`;
+    } else {
+      // Try gateway AI chat
+      try {
+        const res = await apiFetch("/api/admin/gateway/chat", {
+          method: "POST",
+          body: JSON.stringify({ message: msg, context: { agent: "clawbot" } }),
+        });
+        if (res?.error) {
+          // Gateway error — provide helpful fallback
+          reply = `⚠️ Gateway is currently unreachable.\n\nI can still help with local commands:\n• "run all agents" — deploy & run all agents\n• "run [agent name]" — run a specific agent\n• "stop all" — stop all agents\n• "agent status" — show agent list\n• "health check" — check gateway status\n\nTo restore gateway: SSH into Kamrui and run \`pm2 restart sisg-gateway\``;
+        } else {
+          reply = res?.response || res?.data?.response || "Received empty response from gateway.";
+        }
+      } catch {
+        reply = `⚠️ Gateway offline. Available local commands:\n• "run all agents"\n• "run [agent name]"\n• "stop all"\n• "agent status"\n• "health check"`;
+      }
     }
+
+    setMessages((prev) =>
+      prev.map((m) => m.id === pendingMsg.id ? { ...m, content: reply, pending: false } : m)
+    );
     setSending(false);
   }, [input, sending]);
 

@@ -10,7 +10,7 @@ import {
   CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
   Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut,
   Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool, Bot,
-  Sun, Moon, Palette
+  Sun, Moon, Palette, Zap
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -40,6 +40,7 @@ const navSections: NavSection[] = [
     { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#00d4ff" },
   ]},
   { section: "System", items: [
+    { label: "Agents", href: "/dashboard/agents", icon: Zap, color: "#00e5a0" },
     { label: "ClawBot", href: "/dashboard/clawbot", icon: Bot, color: "#8b5cf6" },
     { label: "Reports", href: "/dashboard/reports", icon: FileText, color: "#00e5a0" },
     { label: "Settings", href: "/dashboard/settings", icon: Settings, color: "#6b7280" },

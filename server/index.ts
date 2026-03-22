@@ -7,6 +7,8 @@ import { slack } from "./services/slack.js";
 import { clawbot } from "./services/clawbot.js";
 import adminRouter from "./routes/admin.js";
 import clawbotRouter from "./routes/clawbot.js";
+import agentsRouter from "./routes/sisg-agents.js";
+import { sisgAgents } from "./services/sisg-agents.js";
 import { storage } from "./services/storage.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -140,6 +142,7 @@ async function startServer() {
   // Mount admin API routes
   app.use(adminRouter);
   app.use(clawbotRouter);
+  app.use(agentsRouter);
 
   // Seed initial data if collections are empty
   const seedIfEmpty = (collection: string, data: any[]) => {
@@ -218,9 +221,18 @@ async function startServer() {
 
   const port = process.env.PORT || 3000;
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}/`);
     console.log(`API endpoints available at http://localhost:${port}/api/`);
+
+    // Initialize SISG business agents and start scheduler
+    try {
+      await sisgAgents.initialize();
+      sisgAgents.startScheduler();
+      console.log("🤖 SISG Agents initialized and scheduler started");
+    } catch (error) {
+      console.error("Failed to initialize SISG agents:", error);
+    }
   });
 }
 

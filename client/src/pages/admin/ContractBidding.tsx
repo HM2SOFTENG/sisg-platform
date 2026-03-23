@@ -909,14 +909,14 @@ export default function ContractBidding() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 shrink-0" />
                     <input type="text" placeholder="Search title, solicitation, agency, NAICS, description..." value={oppSearch} onChange={(e) => setOppSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white pl-9 pr-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
                   </div>
-                  <select value={oppScoreFilter} onChange={(e) => setOppScoreFilter(Number(e.target.value))} className="bg-white/5 border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto">
+                  <select value={oppScoreFilter} onChange={(e) => setOppScoreFilter(Number(e.target.value))} className="bg-[#1a1a2e] border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                     <option value={0}>All Scores</option>
                     <option value={15}>Score 15+</option>
                     <option value={25}>Score 25+</option>
                     <option value={30}>Score 30+</option>
                     <option value={40}>Score 40+</option>
                   </select>
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="bg-white/5 border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto">
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="bg-[#1a1a2e] border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                     <option value="score">Sort: Score</option>
                     <option value="deadline">Sort: Deadline</option>
                     <option value="posted">Sort: Newest</option>
@@ -943,7 +943,7 @@ export default function ContractBidding() {
                           </div>
                           <div>
                             <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Set-Aside</label>
-                            <select value={filterSetAside} onChange={(e) => setFilterSetAside(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                            <select value={filterSetAside} onChange={(e) => setFilterSetAside(e.target.value)} className="w-full bg-[#1a1a2e] border border-white/10 text-white px-3 py-2 outline-none text-xs rounded [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                               <option value="">All Set-Asides</option>
                               <option value="SDVOSBC">SDVOSB (Competitive)</option>
                               <option value="SDVOSBS">SDVOSB (Sole Source)</option>
@@ -960,7 +960,7 @@ export default function ContractBidding() {
                           </div>
                           <div>
                             <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Opportunity Type</label>
-                            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full bg-[#1a1a2e] border border-white/10 text-white px-3 py-2 outline-none text-xs rounded [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                               <option value="">All Types</option>
                               <option value="Solicitation">Solicitation</option>
                               <option value="Combined Synopsis/Solicitation">Combined Synopsis/Solicitation</option>
@@ -972,7 +972,7 @@ export default function ContractBidding() {
                           </div>
                           <div>
                             <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Deadline</label>
-                            <select value={filterDeadlineRange} onChange={(e) => setFilterDeadlineRange(e.target.value as any)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                            <select value={filterDeadlineRange} onChange={(e) => setFilterDeadlineRange(e.target.value as any)} className="w-full bg-[#1a1a2e] border border-white/10 text-white px-3 py-2 outline-none text-xs rounded [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                               <option value="all">Any Deadline</option>
                               <option value="7d">Within 7 Days</option>
                               <option value="14d">Within 14 Days</option>
@@ -1514,7 +1514,7 @@ export default function ContractBidding() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Select Opportunity *</label>
-                        <select value={selectedOppForProposal} onChange={(e) => setSelectedOppForProposal(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff]">
+                        <select value={selectedOppForProposal} onChange={(e) => setSelectedOppForProposal(e.target.value)} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
                           <option value="">Choose an opportunity...</option>
                           {opportunities.map((opp: SamOpportunity) => (
                             <option key={opp.noticeId} value={opp.noticeId}>
@@ -1525,33 +1525,83 @@ export default function ContractBidding() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Company Profile Notes</label>
-                        <textarea value={proposalInputs.companyProfile} onChange={(e) => setProposalInputs({ ...proposalInputs, companyProfile: e.target.value })} placeholder="Your company's relevant background and capabilities..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Company Profile</label>
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, companyProfile: e.target.value }); else setProposalInputs({ ...proposalInputs, companyProfile: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select a profile template...</option>
+                          <option value="SDVOSB-certified IT services firm specializing in cybersecurity, cloud migration, and software development for federal agencies. CMMI Level 3 appraised.">SDVOSB IT Services (Cyber, Cloud, Software)</option>
+                          <option value="Veteran-owned small business providing systems integration, data analytics, and DevSecOps solutions. Active Secret clearance holders on staff.">Systems Integration & DevSecOps</option>
+                          <option value="Service-Disabled Veteran-Owned firm with expertise in IT modernization, infrastructure migration, and managed security services for DoD and civilian agencies.">IT Modernization & Managed Services</option>
+                          <option value="Small business specializing in Agile software development, enterprise architecture, and digital transformation for government clients.">Agile Dev & Digital Transformation</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.companyProfile} onChange={(e) => setProposalInputs({ ...proposalInputs, companyProfile: e.target.value })} placeholder="Your company's relevant background and capabilities..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
 
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Team Composition</label>
-                        <textarea value={proposalInputs.teamComposition} onChange={(e) => setProposalInputs({ ...proposalInputs, teamComposition: e.target.value })} placeholder="Key team members, roles, and experience..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, teamComposition: e.target.value }); else setProposalInputs({ ...proposalInputs, teamComposition: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select a team structure...</option>
+                          <option value="Program Manager (PMP, 15+ yrs), Lead Engineer (AWS/Azure certified, 10+ yrs), Sr. Cybersecurity Analyst (CISSP, 8+ yrs), 2x Full-Stack Developers, QA Lead">Full IT Delivery Team (6 members)</option>
+                          <option value="Technical Lead (12+ yrs), 2x Sr. Developers, DevOps Engineer, Security Engineer, Business Analyst">Agile Development Squad (6 members)</option>
+                          <option value="Project Manager (PMP), Systems Architect, 2x Cloud Engineers (AWS/Azure), DBA, Network Engineer">Cloud Migration Team (6 members)</option>
+                          <option value="CISO-level Advisor, 2x SOC Analysts, Penetration Tester, Compliance Specialist, Incident Response Lead">Cybersecurity Operations Team (6 members)</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.teamComposition} onChange={(e) => setProposalInputs({ ...proposalInputs, teamComposition: e.target.value })} placeholder="Key team members, roles, and experience..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
 
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Past Performance References</label>
-                        <textarea value={proposalInputs.pastPerformance} onChange={(e) => setProposalInputs({ ...proposalInputs, pastPerformance: e.target.value })} placeholder="Relevant past contracts and accomplishments..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, pastPerformance: e.target.value }); else setProposalInputs({ ...proposalInputs, pastPerformance: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select past performance template...</option>
+                          <option value="3+ federal IT contracts completed on time and within budget. Includes DoD cybersecurity assessment, VA systems modernization, and DHS cloud migration.">Federal IT Portfolio (3+ contracts)</option>
+                          <option value="Multiple SDVOSB set-aside contracts with CPARS ratings of Exceptional/Very Good. Experience with DoD, VA, and civilian agencies.">SDVOSB Contract History (High CPARS)</option>
+                          <option value="Successfully delivered Agile software development projects for federal clients using SAFe methodology. All projects met performance benchmarks.">Agile Delivery Track Record</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.pastPerformance} onChange={(e) => setProposalInputs({ ...proposalInputs, pastPerformance: e.target.value })} placeholder="Relevant past contracts and accomplishments..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
 
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Technical Approach</label>
-                        <textarea value={proposalInputs.technicalApproach} onChange={(e) => setProposalInputs({ ...proposalInputs, technicalApproach: e.target.value })} placeholder="Your proposed methodology and solution approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, technicalApproach: e.target.value }); else setProposalInputs({ ...proposalInputs, technicalApproach: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select a technical approach...</option>
+                          <option value="Agile/Scrum methodology with 2-week sprints, CI/CD pipeline, DevSecOps integration, and automated testing for rapid, secure delivery.">Agile/Scrum with DevSecOps</option>
+                          <option value="NIST Cybersecurity Framework-aligned approach with continuous monitoring, threat assessment, vulnerability management, and incident response.">NIST Cybersecurity Framework</option>
+                          <option value="Phased cloud migration using AWS/Azure Well-Architected Framework with zero-downtime cutover, automated testing, and FedRAMP compliance.">Cloud Migration (AWS/Azure)</option>
+                          <option value="SAFe Agile framework with program-level coordination, architectural runway planning, and continuous integration across multiple development teams.">SAFe Enterprise Agile</option>
+                          <option value="ITIL-based service management with SLA-driven operations, proactive monitoring, automated remediation, and 24/7 NOC/SOC support.">ITIL Managed Services</option>
+                          <option value="Human-centered design with iterative prototyping, usability testing, Section 508 compliance, and modern React/TypeScript frontend architecture.">UX-Driven Modernization</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.technicalApproach} onChange={(e) => setProposalInputs({ ...proposalInputs, technicalApproach: e.target.value })} placeholder="Your proposed methodology and solution approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
 
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Pricing Strategy</label>
-                        <textarea value={proposalInputs.pricingStrategy} onChange={(e) => setProposalInputs({ ...proposalInputs, pricingStrategy: e.target.value })} placeholder="Your pricing model and cost estimation approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, pricingStrategy: e.target.value }); else setProposalInputs({ ...proposalInputs, pricingStrategy: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select a pricing model...</option>
+                          <option value="Time and Materials (T&M) with Not-to-Exceed ceiling. Labor rates based on GSA Schedule pricing. Travel at federal per diem rates.">T&M with NTE Ceiling (GSA Rates)</option>
+                          <option value="Firm Fixed Price (FFP) based on detailed WBS and bottom-up cost estimation. Includes risk reserve and management reserve.">Firm Fixed Price (FFP)</option>
+                          <option value="Cost Plus Fixed Fee (CPFF) with fully burdened labor rates, ODC estimates, and transparent cost accounting per DCAA guidelines.">Cost Plus Fixed Fee (CPFF/DCAA)</option>
+                          <option value="Labor Hour contract with blended rates by labor category. Competitive rates benchmarked against GSA Schedule and market analysis.">Labor Hour (Blended Rates)</option>
+                          <option value="Hybrid pricing: FFP for defined deliverables, T&M for advisory/support tasks. Allows flexibility while controlling costs on known scope items.">Hybrid FFP + T&M</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.pricingStrategy} onChange={(e) => setProposalInputs({ ...proposalInputs, pricingStrategy: e.target.value })} placeholder="Your pricing model and cost estimation approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
 
                       <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Additional Notes</label>
-                        <textarea value={proposalInputs.additionalNotes} onChange={(e) => setProposalInputs({ ...proposalInputs, additionalNotes: e.target.value })} placeholder="Any other information for proposal generation..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                        <select onChange={(e) => { if (e.target.value !== "__custom__") setProposalInputs({ ...proposalInputs, additionalNotes: e.target.value }); else setProposalInputs({ ...proposalInputs, additionalNotes: "" }); }} className="w-full bg-[#1a1a2e] border border-white/10 text-white text-sm rounded px-3 py-2 mb-2 focus:outline-none focus:border-[#0066ff] [&>option]:bg-[#1a1a2e] [&>option]:text-white">
+                          <option value="">Select additional context...</option>
+                          <option value="Pursuing as prime contractor. Teaming arrangements may be established for specialized sub-tasks.">Prime contractor (possible teaming)</option>
+                          <option value="Pursuing as subcontractor under existing mentor-protege or JV arrangement.">Subcontractor / JV partner</option>
+                          <option value="First-time bidder on this vehicle/agency. Emphasize past performance from adjacent agencies and commercial work.">New to agency (cross-reference experience)</option>
+                          <option value="Incumbent recompete. Leverage existing knowledge of agency processes, systems, and personnel.">Incumbent recompete</option>
+                          <option value="__custom__">Custom (type below)</option>
+                        </select>
+                        <textarea value={proposalInputs.additionalNotes} onChange={(e) => setProposalInputs({ ...proposalInputs, additionalNotes: e.target.value })} placeholder="Any other information for proposal generation..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-16" />
                       </div>
                     </div>
 

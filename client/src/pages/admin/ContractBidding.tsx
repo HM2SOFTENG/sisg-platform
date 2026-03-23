@@ -386,12 +386,26 @@ export default function ContractBidding() {
 
   const runContractsAgent = async () => {
     setScanProgress("Initiating SAM.gov scan...");
-    toast("SAM.gov scan started", { description: "Scanning 6 NAICS codes and SDVOSB set-asides", icon: <Search size={16} /> });
+    toast("SAM.gov scan started", { description: "Scanning NAICS codes and SDVOSB set-asides (this may take 15-20s)", icon: <Search size={16} /> });
     try {
       const response = await fetch("/api/admin/agents/contracts/run", { method: "POST", headers });
       if (response.ok) {
+        const result = await response.json();
         setScanProgress(null);
-        toast.success("SAM.gov scan complete", { description: "Opportunities have been scored and stored" });
+        // Check if there were rate limiting or API errors
+        const outputs = result?.data?.output || [];
+        const alertOutput = outputs.find((o: any) => o.type === "alert" && o.severity === "warning");
+        const reportOutput = outputs.find((o: any) => o.type === "report");
+        const totalOpps = reportOutput?.data?.scan_summary?.total_unique_opportunities || 0;
+
+        if (alertOutput && totalOpps === 0) {
+          toast.warning("SAM.gov API rate limited", { description: "Using previously cached data. Try again in a few minutes.", duration: 6000 });
+        } else if (totalOpps > 0) {
+          toast.success("SAM.gov scan complete", { description: `${totalOpps} opportunities scored and stored` });
+        } else {
+          toast("Scan complete — no new opportunities found", { description: "Showing cached data if available", icon: <Search size={16} /> });
+        }
+        // Always fetch opportunities (will show cached data if scan returned 0)
         fetchOpportunities();
       } else {
         setScanProgress(null);

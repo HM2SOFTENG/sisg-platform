@@ -1,4 +1,5 @@
 import express, { Router, Request, Response } from "express";
+import crypto from "crypto";
 import { adminAuth } from "../middleware/auth.js";
 import { sisgAgents } from "../services/sisg-agents.js";
 
@@ -236,6 +237,134 @@ router.get("/api/admin/agents/digest/history", adminAuth, async (req: Request, r
   }
 });
 
+/**
+ * POST /api/admin/agents/generate-proposal
+ * Generate a full bid proposal from a SAM.gov opportunity with user inputs
+ */
+router.post("/api/admin/agents/generate-proposal", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { opportunityId, companyProfile, teamComposition, pastPerformance, technicalApproach, pricingStrategy, additionalNotes } = req.body;
+    if (!opportunityId) {
+      return res.status(400).json({ success: false, error: "opportunityId is required" });
+    }
+
+    // Get the opportunity from storage
+    const opps = await sisgAgents.getOpportunities({ limit: 500 });
+    const opp = opps.find((o: any) => o.noticeId === opportunityId || o.id === opportunityId);
+    if (!opp) {
+      return res.status(404).json({ success: false, error: "Opportunity not found in stored data" });
+    }
+
+    // Build the proposal
+    const now = new Date();
+    const deadline = opp.responseDeadline ? new Date(opp.responseDeadline) : null;
+    const daysRemaining = deadline ? Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+    const proposal = {
+      id: crypto.randomUUID(),
+      generatedAt: now.toISOString(),
+      opportunity: {
+        noticeId: opp.noticeId,
+        title: opp.title,
+        solicitationNumber: opp.solicitationNumber || "TBD",
+        organization: opp.organization || opp.department || "Unknown",
+        naicsCode: opp.naicsCode || "",
+        setAside: opp.setAside || "",
+        setAsideDescription: opp.setAsideDescription || "",
+        type: opp.type || "",
+        postedDate: opp.postedDate || "",
+        responseDeadline: opp.responseDeadline || null,
+        daysRemaining,
+        score: opp.score || 0,
+        placeOfPerformance: opp.placeOfPerformance || "",
+        description: opp.description || "",
+      },
+      bidDecision: {
+        recommendation: (opp.score || 0) >= 30 ? "STRONG BID" : (opp.score || 0) >= 15 ? "CONDITIONAL BID" : "NO BID",
+        confidence: Math.min(95, Math.max(40, (opp.score || 0) * 2 + 10)),
+        rationale: generateBidRationale(opp),
+        riskLevel: daysRemaining !== null && daysRemaining < 7 ? "HIGH" : daysRemaining !== null && daysRemaining < 14 ? "MEDIUM" : "LOW",
+      },
+      executionPlan: {
+        phases: generatePhases(opp, daysRemaining),
+        keyMilestones: generateMilestones(opp, daysRemaining),
+        teamStructure: teamComposition || "To be determined based on contract requirements",
+        technicalApproach: technicalApproach || generateDefaultTechnicalApproach(opp),
+      },
+      costEstimate: {
+        methodology: pricingStrategy || "Time and Materials with Not-to-Exceed ceiling",
+        estimatedRange: estimateCostRange(opp),
+        assumptions: [
+          "Pricing based on GSA Schedule rates where applicable",
+          "Travel costs estimated at federal per diem rates",
+          "Assumes standard government fiscal year timeline",
+          `Place of performance: ${opp.placeOfPerformance || "TBD"}`,
+        ],
+      },
+      complianceChecklist: generateComplianceChecklist(opp),
+      proposalOutline: {
+        volume1_technical: [
+          "1.0 Executive Summary",
+          "2.0 Understanding of Requirements",
+          "3.0 Technical Approach & Methodology",
+          "4.0 Management Plan",
+          "5.0 Staffing Plan & Key Personnel",
+          "6.0 Quality Assurance Plan",
+          "7.0 Risk Management",
+          "8.0 Phase-In / Transition Plan",
+        ],
+        volume2_past_performance: [
+          "1.0 Past Performance Summary",
+          pastPerformance ? "2.0 Relevant Contract References (provided)" : "2.0 Relevant Contract References (to be completed)",
+          "3.0 Past Performance Questionnaires",
+        ],
+        volume3_pricing: [
+          "1.0 Pricing Narrative",
+          "2.0 Cost/Price Summary",
+          "3.0 Basis of Estimate",
+          "4.0 Rate Tables",
+        ],
+      },
+      userInputs: {
+        companyProfile: companyProfile || null,
+        teamComposition: teamComposition || null,
+        pastPerformance: pastPerformance || null,
+        technicalApproach: technicalApproach || null,
+        pricingStrategy: pricingStrategy || null,
+        additionalNotes: additionalNotes || null,
+      },
+      nextSteps: generateNextSteps(opp, daysRemaining),
+      status: "draft",
+    };
+
+    // Save to storage
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    proposals.unshift(proposal);
+    // Keep last 50 proposals
+    storage.write("generated_proposals", proposals.slice(0, 50));
+
+    res.json({ success: true, data: proposal });
+  } catch (error) {
+    console.error("Proposal generation error:", error);
+    res.status(500).json({ success: false, error: "Failed to generate proposal" });
+  }
+});
+
+/**
+ * GET /api/admin/agents/proposals
+ * Get saved generated proposals
+ */
+router.get("/api/admin/agents/proposals", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    res.json({ success: true, data: proposals, count: proposals.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch proposals" });
+  }
+});
+
 // ---- PARAMETERIZED ROUTES (must come AFTER non-parameterized routes) ----
 
 /**
@@ -338,5 +467,89 @@ router.get("/api/admin/agents/:slug/runs", adminAuth, async (req: Request, res: 
     res.status(500).json({ success: false, error: "Failed to fetch run history" });
   }
 });
+
+// --- Proposal Generation Helpers ---
+
+function generateBidRationale(opp: any): string[] {
+  const reasons: string[] = [];
+  if (opp.setAside === "SDVOSBC" || opp.setAside === "SDVOSBS") reasons.push("SDVOSB set-aside aligns with SISG's veteran-owned status");
+  if (opp.score >= 30) reasons.push("High relevance score indicates strong capability alignment");
+  if (opp.naicsCode?.startsWith("5415")) reasons.push("NAICS code matches SISG's core IT services competency");
+  if (opp.reasons?.length > 0) reasons.push(...opp.reasons.slice(0, 3));
+  if (reasons.length === 0) reasons.push("Opportunity matches general capability profile");
+  return reasons;
+}
+
+function generatePhases(opp: any, daysRemaining: number | null): any[] {
+  const phases = [
+    { name: "Proposal Development", duration: daysRemaining ? `${Math.max(1, Math.floor((daysRemaining - 2) * 0.6))} days` : "TBD", tasks: ["Requirements analysis", "Solution architecture", "Staffing plan", "Cost modeling"] },
+    { name: "Review & Refinement", duration: daysRemaining ? `${Math.max(1, Math.floor((daysRemaining - 2) * 0.25))} days` : "TBD", tasks: ["Technical review", "Compliance check", "Pricing validation", "Executive approval"] },
+    { name: "Submission", duration: daysRemaining ? `${Math.max(1, Math.floor((daysRemaining - 2) * 0.15))} days` : "TBD", tasks: ["Final formatting", "Document assembly", "Electronic submission", "Confirmation receipt"] },
+  ];
+  return phases;
+}
+
+function generateMilestones(opp: any, daysRemaining: number | null): any[] {
+  const milestones = [];
+  if (daysRemaining !== null && daysRemaining > 0) {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    milestones.push({ name: "Bid/No-Bid Decision", date: new Date(now + day).toISOString().split("T")[0], status: "complete" });
+    milestones.push({ name: "Draft Technical Volume", date: new Date(now + Math.floor(daysRemaining * 0.4) * day).toISOString().split("T")[0], status: "pending" });
+    milestones.push({ name: "Draft Cost Volume", date: new Date(now + Math.floor(daysRemaining * 0.6) * day).toISOString().split("T")[0], status: "pending" });
+    milestones.push({ name: "Internal Review Complete", date: new Date(now + Math.floor(daysRemaining * 0.8) * day).toISOString().split("T")[0], status: "pending" });
+    milestones.push({ name: "Final Submission", date: opp.responseDeadline?.split("T")[0] || "TBD", status: "pending" });
+  }
+  return milestones;
+}
+
+function generateDefaultTechnicalApproach(opp: any): string {
+  const title = (opp.title || "").toLowerCase();
+  if (title.includes("cyber") || title.includes("security")) return "NIST Cybersecurity Framework-aligned approach with continuous monitoring, threat assessment, and incident response capabilities.";
+  if (title.includes("cloud") || title.includes("migration")) return "Phased cloud migration using AWS/Azure best practices with zero-downtime cutover strategy and automated testing.";
+  if (title.includes("software") || title.includes("development")) return "Agile/Scrum methodology with 2-week sprints, CI/CD pipeline, and DevSecOps integration for rapid, secure delivery.";
+  if (title.includes("data") || title.includes("analytics")) return "Modern data engineering approach with automated ETL pipelines, real-time dashboards, and AI/ML-driven insights.";
+  return "Proven methodology aligned with industry best practices, tailored to agency-specific requirements with measurable outcomes.";
+}
+
+function estimateCostRange(opp: any): { low: string; mid: string; high: string } {
+  // Rough estimation based on opportunity type and scope
+  const score = opp.score || 0;
+  const type = (opp.type || "").toLowerCase();
+  let baseLow = 50000, baseMid = 150000, baseHigh = 500000;
+  if (type.includes("solicitation")) { baseLow = 100000; baseMid = 350000; baseHigh = 1000000; }
+  if (type.includes("sources sought")) { baseLow = 25000; baseMid = 75000; baseHigh = 200000; }
+  const fmt = (n: number) => n >= 1000000 ? `$${(n / 1000000).toFixed(1)}M` : `$${(n / 1000).toFixed(0)}K`;
+  return { low: fmt(baseLow), mid: fmt(baseMid), high: fmt(baseHigh) };
+}
+
+function generateComplianceChecklist(opp: any): any[] {
+  const items = [
+    { item: "SAM.gov Registration Current", required: true, status: "verify" },
+    { item: "NAICS Code Certification", required: true, status: opp.naicsCode ? "ready" : "verify" },
+    { item: "Past Performance References (3+)", required: true, status: "action_needed" },
+    { item: "Key Personnel Resumes", required: true, status: "action_needed" },
+    { item: "Organizational Conflict of Interest", required: true, status: "verify" },
+    { item: "Section 508 Compliance", required: opp.title?.toLowerCase().includes("it") || opp.naicsCode?.startsWith("5415"), status: "verify" },
+  ];
+  if (opp.setAside === "SDVOSBC" || opp.setAside === "SDVOSBS") {
+    items.push({ item: "SDVOSB CVE Certification", required: true, status: "verify" });
+  }
+  if (opp.setAside === "8A") {
+    items.push({ item: "8(a) Program Certification", required: true, status: "verify" });
+  }
+  return items;
+}
+
+function generateNextSteps(opp: any, daysRemaining: number | null): string[] {
+  const steps = ["Review generated proposal outline and customize sections"];
+  if (daysRemaining !== null && daysRemaining <= 7) steps.unshift("URGENT: Deadline approaching — prioritize submission preparation");
+  steps.push("Assign key personnel and collect resumes");
+  steps.push("Draft technical approach specific to the SOW");
+  steps.push("Prepare cost/pricing volume with competitive rates");
+  steps.push("Conduct internal Red Team review before submission");
+  if (opp.pointOfContact) steps.push(`Contact contracting officer for clarification questions`);
+  return steps;
+}
 
 export default router;

@@ -277,6 +277,14 @@ export default function ContractBidding() {
   const [oppScoreFilter, setOppScoreFilter] = useState(0);
   const [expandedOpp, setExpandedOpp] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterNaics, setFilterNaics] = useState("");
+  const [filterSetAside, setFilterSetAside] = useState("");
+  const [filterAgency, setFilterAgency] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterDeadlineRange, setFilterDeadlineRange] = useState<"all" | "7d" | "14d" | "30d" | "60d">("all");
+  const [filterState, setFilterState] = useState("");
+  const [sortBy, setSortBy] = useState<"score" | "deadline" | "posted" | "agency">("score");
 
   // Digest state
   const [digest, setDigest] = useState<DailyDigest | null>(null);
@@ -290,6 +298,21 @@ export default function ContractBidding() {
   // Bidding Process Steps state
   const [biddingStepsOpp, setBiddingStepsOpp] = useState<string | null>(null);
 
+  // Proposal Generator state
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [selectedOppForProposal, setSelectedOppForProposal] = useState("");
+  const [proposalInputs, setProposalInputs] = useState({
+    companyProfile: "",
+    teamComposition: "",
+    pastPerformance: "",
+    technicalApproach: "",
+    pricingStrategy: "",
+    additionalNotes: "",
+  });
+  const [activeProposal, setActiveProposal] = useState<any | null>(null);
+  const [showProposalForm, setShowProposalForm] = useState(false);
+
   const token = typeof window !== "undefined" ? localStorage.getItem("sisg_admin_token") : null;
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -297,7 +320,13 @@ export default function ContractBidding() {
   // DATA FETCHING
   // ============================================================
 
-  useEffect(() => { fetchContracts(); }, []);
+  // Load all persisted data on mount — contracts, opportunities, and last digest
+  useEffect(() => {
+    fetchContracts();
+    fetchOpportunities();
+    loadLatestDigest();
+    fetchProposals();
+  }, []);
 
   const fetchContracts = async () => {
     try {
@@ -332,6 +361,22 @@ export default function ContractBidding() {
       console.error("Failed to fetch opportunities:", error);
     } finally {
       setOppsLoading(false);
+    }
+  }, []);
+
+  // Load the most recent digest from server storage (no API call to SAM.gov)
+  const loadLatestDigest = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/agents/digest/history?limit=1", { headers });
+      if (response.ok) {
+        const data = await response.json();
+        const digests = data.data || [];
+        if (digests.length > 0) {
+          setDigest(digests[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load cached digest:", error);
     }
   }, []);
 
@@ -417,9 +462,55 @@ export default function ContractBidding() {
     }
   };
 
-  // Load tab data on switch
+  const fetchProposals = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/agents/proposals", { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setProposals(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch proposals:", error);
+    }
+  }, []);
+
+  const generateProposal = async () => {
+    if (!selectedOppForProposal) {
+      toast.error("Select an opportunity first");
+      return;
+    }
+    setProposalLoading(true);
+    try {
+      const response = await fetch("/api/admin/agents/generate-proposal", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          opportunityId: selectedOppForProposal,
+          ...proposalInputs,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActiveProposal(data.data);
+        setShowProposalForm(false);
+        setProposals(prev => [data.data, ...prev]);
+        toast.success("Proposal generated", { description: `${data.data.bidDecision.recommendation} — ${data.data.bidDecision.confidence}% confidence` });
+      } else {
+        const err = await response.json();
+        toast.error("Generation failed", { description: err.error || "Unknown error" });
+      }
+    } catch (error) {
+      toast.error("Generation failed", { description: "Network error" });
+    } finally {
+      setProposalLoading(false);
+    }
+  };
+
+  // Refresh tab data on switch if stale
   useEffect(() => {
     if (activeTab === "opportunities" && opportunities.length === 0) fetchOpportunities();
+    if (activeTab === "digest" && !digest) loadLatestDigest();
+    if (activeTab === "proposals" && proposals.length === 0) fetchProposals();
   }, [activeTab]);
 
   // Track tab direction for animation
@@ -485,7 +576,29 @@ export default function ContractBidding() {
     .filter((o) => o.score >= oppScoreFilter)
     .filter((o) => !oppSearch || o.title.toLowerCase().includes(oppSearch.toLowerCase())
       || o.solicitationNumber?.toLowerCase().includes(oppSearch.toLowerCase())
-      || o.organization?.toLowerCase().includes(oppSearch.toLowerCase()));
+      || o.organization?.toLowerCase().includes(oppSearch.toLowerCase())
+      || o.description?.toLowerCase().includes(oppSearch.toLowerCase())
+      || o.naicsCode?.includes(oppSearch))
+    .filter((o) => !filterNaics || o.naicsCode?.startsWith(filterNaics))
+    .filter((o) => !filterSetAside || o.setAside === filterSetAside)
+    .filter((o) => !filterAgency || o.organization?.toLowerCase().includes(filterAgency.toLowerCase()) || o.department?.toLowerCase().includes(filterAgency.toLowerCase()))
+    .filter((o) => !filterType || o.type === filterType)
+    .filter((o) => !filterState || o.placeOfPerformance === filterState)
+    .filter((o) => {
+      if (filterDeadlineRange === "all") return true;
+      const days = o.responseDeadline ? Math.ceil((new Date(o.responseDeadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+      if (days === null) return filterDeadlineRange === "all";
+      const maxDays = { "7d": 7, "14d": 14, "30d": 30, "60d": 60 }[filterDeadlineRange];
+      return days >= 0 && days <= maxDays;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "deadline": return (new Date(a.responseDeadline || "2099").getTime()) - (new Date(b.responseDeadline || "2099").getTime());
+        case "posted": return (new Date(b.postedDate || "0").getTime()) - (new Date(a.postedDate || "0").getTime());
+        case "agency": return (a.organization || "").localeCompare(b.organization || "");
+        default: return (b.score || 0) - (a.score || 0);
+      }
+    });
 
   const stats = {
     totalValue: contracts.reduce((sum, c) => sum + c.value, 0),
@@ -789,19 +902,103 @@ export default function ContractBidding() {
                 ))}
               </motion.div>
 
-              {/* Search and Filters */}
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <div className="relative flex-1 min-w-0">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 shrink-0" />
-                  <input type="text" placeholder="Search..." value={oppSearch} onChange={(e) => setOppSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white pl-9 pr-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
+              {/* Search Bar + Advanced Filter Toggle */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <div className="relative flex-1 min-w-0">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 shrink-0" />
+                    <input type="text" placeholder="Search title, solicitation, agency, NAICS, description..." value={oppSearch} onChange={(e) => setOppSearch(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white pl-9 pr-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
+                  </div>
+                  <select value={oppScoreFilter} onChange={(e) => setOppScoreFilter(Number(e.target.value))} className="bg-white/5 border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto">
+                    <option value={0}>All Scores</option>
+                    <option value={15}>Score 15+</option>
+                    <option value={25}>Score 25+</option>
+                    <option value={30}>Score 30+</option>
+                    <option value={40}>Score 40+</option>
+                  </select>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="bg-white/5 border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto">
+                    <option value="score">Sort: Score</option>
+                    <option value="deadline">Sort: Deadline</option>
+                    <option value="posted">Sort: Newest</option>
+                    <option value="agency">Sort: Agency</option>
+                  </select>
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`px-3 py-2 sm:py-2.5 border text-xs sm:text-sm rounded flex items-center gap-1.5 shrink-0 transition-colors ${showAdvancedFilters ? "bg-[#0066ff]/20 border-[#0066ff]/50 text-[#0066ff]" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
+                    <Target size={14} /> Filters {showAdvancedFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </motion.button>
                 </div>
-                <select value={oppScoreFilter} onChange={(e) => setOppScoreFilter(Number(e.target.value))} className="bg-white/5 border border-white/10 text-white px-3 py-2 sm:py-2.5 outline-none text-xs sm:text-sm rounded w-full sm:w-auto">
-                  <option value={0}>All Scores</option>
-                  <option value={15}>Score 15+ (Moderate)</option>
-                  <option value={25}>Score 25+ (Good)</option>
-                  <option value={30}>Score 30+ (Strong)</option>
-                  <option value={40}>Score 40+ (Top Match)</option>
-                </select>
+
+                {/* Advanced Filter Panel */}
+                <AnimatePresence>
+                  {showAdvancedFilters && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                      <div className="tech-card p-4 space-y-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Advanced Filters</p>
+                          <button onClick={() => { setFilterNaics(""); setFilterSetAside(""); setFilterAgency(""); setFilterType(""); setFilterDeadlineRange("all"); setFilterState(""); }} className="text-[10px] text-gray-500 hover:text-[#0066ff] transition-colors">Clear All</button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">NAICS Code</label>
+                            <input type="text" placeholder="e.g. 541512" value={filterNaics} onChange={(e) => setFilterNaics(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Set-Aside</label>
+                            <select value={filterSetAside} onChange={(e) => setFilterSetAside(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                              <option value="">All Set-Asides</option>
+                              <option value="SDVOSBC">SDVOSB (Competitive)</option>
+                              <option value="SDVOSBS">SDVOSB (Sole Source)</option>
+                              <option value="SBA">Small Business</option>
+                              <option value="8A">8(a)</option>
+                              <option value="HZC">HUBZone</option>
+                              <option value="WOSB">Women-Owned SB</option>
+                              <option value="EDWOSB">Economically Disadvantaged WOSB</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Agency / Department</label>
+                            <input type="text" placeholder="e.g. Department of Defense" value={filterAgency} onChange={(e) => setFilterAgency(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Opportunity Type</label>
+                            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                              <option value="">All Types</option>
+                              <option value="Solicitation">Solicitation</option>
+                              <option value="Combined Synopsis/Solicitation">Combined Synopsis/Solicitation</option>
+                              <option value="Pre solicitation">Pre-Solicitation</option>
+                              <option value="Sources Sought">Sources Sought</option>
+                              <option value="Special Notice">Special Notice</option>
+                              <option value="Award Notice">Award Notice</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">Deadline</label>
+                            <select value={filterDeadlineRange} onChange={(e) => setFilterDeadlineRange(e.target.value as any)} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs rounded">
+                              <option value="all">Any Deadline</option>
+                              <option value="7d">Within 7 Days</option>
+                              <option value="14d">Within 14 Days</option>
+                              <option value="30d">Within 30 Days</option>
+                              <option value="60d">Within 60 Days</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest block mb-1">State</label>
+                            <input type="text" placeholder="e.g. VA, DC, MD" value={filterState} onChange={(e) => setFilterState(e.target.value.toUpperCase())} maxLength={2} className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 outline-none text-xs placeholder-gray-600 rounded focus:border-[#0066ff]/50 transition-colors" />
+                          </div>
+                        </div>
+                        {/* Active filter count */}
+                        {(filterNaics || filterSetAside || filterAgency || filterType || filterDeadlineRange !== "all" || filterState) && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-[10px] font-mono text-[#0066ff]">
+                              {[filterNaics, filterSetAside, filterAgency, filterType, filterDeadlineRange !== "all" ? filterDeadlineRange : "", filterState].filter(Boolean).length} filter{[filterNaics, filterSetAside, filterAgency, filterType, filterDeadlineRange !== "all" ? filterDeadlineRange : "", filterState].filter(Boolean).length > 1 ? "s" : ""} active
+                            </span>
+                            <span className="text-gray-600">·</span>
+                            <span className="text-[10px] font-mono text-gray-500">{filteredOpps.length} results</span>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
 
               {/* Scan Progress */}
@@ -1093,119 +1290,324 @@ export default function ContractBidding() {
           )}
 
           {/* ============================================================ */}
-          {/* TAB: PROPOSAL BRIEFS */}
+          {/* TAB: AI PROPOSAL GENERATOR */}
           {/* ============================================================ */}
           {activeTab === "proposals" && (
             <motion.div key="proposals" initial={{ opacity: 0, x: 20 * tabDirection }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 * tabDirection }} transition={{ duration: 0.25, ease: "easeOut" }} className="space-y-6">
-              {digest?.proposal_pipeline?.proposal_briefs && digest.proposal_pipeline.proposal_briefs.length > 0 ? (
+              {/* Active Proposal Viewer */}
+              {activeProposal && !showProposalForm ? (
                 <>
-                  {/* Pipeline Summary KPIs */}
-                  {digest.proposal_pipeline.pipeline_summary && (
-                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
-                      {[
-                        { label: "Database", value: digest.proposal_pipeline.pipeline_summary.total_in_database, color: "#fff" },
-                        { label: "Actionable", value: digest.proposal_pipeline.pipeline_summary.actionable_opportunities, color: "#0066ff" },
-                        { label: "Briefs", value: digest.proposal_pipeline.pipeline_summary.briefs_generated, color: "#8b5cf6" },
-                        { label: "Strong", value: digest.proposal_pipeline.pipeline_summary.strong_bids, color: "#00e5a0" },
-                        { label: "Recommended", value: digest.proposal_pipeline.pipeline_summary.recommended_bids, color: "#ffb800" },
-                      ].map((kpi, i) => (
-                        <motion.div key={i} variants={staggerItem} whileHover={{ y: -2 }} className="tech-card p-3 sm:p-4">
-                          <p className="text-[8px] sm:text-[9px] font-mono text-gray-600 uppercase tracking-widest break-words">{kpi.label}</p>
-                          <p className="text-lg sm:text-xl font-bold mt-2"><AnimatedCounter value={kpi.value} color={kpi.color} /></p>
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  )}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="tech-card p-4 sm:p-6 border-l-4" style={{ borderLeftColor: "#0066ff" }}>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                      <div>
+                        <h2 className="text-base sm:text-lg font-bold text-white mb-1 break-words">{activeProposal.opportunity.title}</h2>
+                        <p className="text-gray-400 text-xs sm:text-sm">{activeProposal.opportunity.organization} — Generated {new Date(activeProposal.generatedAt).toLocaleDateString()}</p>
+                      </div>
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => { toast("Export functionality coming soon", { description: "PDF & Word export features" }); }} className="px-4 py-2 bg-[#0066ff]/20 border border-[#0066ff]/40 text-[#0066ff] text-xs rounded hover:bg-[#0066ff]/30 transition-colors whitespace-nowrap">
+                        <FileText size={12} className="inline mr-2" /> Export
+                      </motion.button>
+                    </div>
+                  </motion.div>
 
-                  {/* Proposal Brief Cards */}
-                  <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-3">
-                    {digest.proposal_pipeline.proposal_briefs.map((brief: ProposalBrief, idx: number) => {
-                      const isExpanded = expandedBrief === idx;
-                      return (
-                        <motion.div key={idx} variants={staggerItem} layout className="tech-card overflow-hidden hover:border-white/15 transition-colors">
-                          <div className="p-4 sm:p-5 cursor-pointer" onClick={() => setExpandedBrief(isExpanded ? null : idx)}>
-                            <div className="flex flex-col sm:flex-row items-start sm:justify-between sm:items-start gap-2 sm:gap-3">
-                              <div className="flex-1 min-w-0 w-full">
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                  <motion.span whileHover={{ scale: 1.05 }} className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 border rounded font-bold shrink-0" style={{ borderColor: getBidColor(brief.proposal_brief.bid_recommendation), color: getBidColor(brief.proposal_brief.bid_recommendation) }}>
-                                    {brief.proposal_brief.bid_recommendation?.substring(0, 12)}
-                                  </motion.span>
-                                  <span className="text-[9px] sm:text-[10px] font-mono text-gray-500 shrink-0">Score: {brief.opportunity.score}</span>
-                                  {brief.opportunity.days_remaining !== null && brief.opportunity.days_remaining <= 14 && (
-                                    <motion.span animate={brief.opportunity.days_remaining <= 7 ? { opacity: [1, 0.5, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity }} className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 bg-red-500/20 text-red-300 border border-red-500/30 rounded flex items-center gap-1 shrink-0">
-                                      <Clock size={8} className="sm:size-2.5" /> {brief.opportunity.days_remaining}d
-                                    </motion.span>
-                                  )}
-                                </div>
-                                <h3 className="text-white font-bold text-xs sm:text-sm leading-tight break-words">{brief.opportunity.title}</h3>
-                                <p className="text-gray-500 text-xs mt-1 break-words">{brief.opportunity.organization}</p>
-                              </div>
-                              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 self-start sm:self-start">
-                                <ChevronDown size={14} className="text-gray-500 sm:size-4" />
-                              </motion.div>
-                            </div>
+                  {/* Bid Decision */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Target size={14} className="text-[#0066ff]" /> Bid Decision
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Recommendation</p>
+                        <p className="text-white font-bold text-sm" style={{ color: activeProposal.bidDecision.recommendation === "STRONG BID" ? "#00e5a0" : activeProposal.bidDecision.recommendation === "CONDITIONAL BID" ? "#ffb800" : "#ff6b6b" }}>
+                          {activeProposal.bidDecision.recommendation}
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Confidence</p>
+                        <p className="text-white font-bold text-sm">{activeProposal.bidDecision.confidence}%</p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Risk Level</p>
+                        <p className="text-white font-bold text-sm" style={{ color: activeProposal.bidDecision.riskLevel === "HIGH" ? "#ff6b6b" : activeProposal.bidDecision.riskLevel === "MEDIUM" ? "#ffb800" : "#00e5a0" }}>
+                          {activeProposal.bidDecision.riskLevel}
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Days Remaining</p>
+                        <p className="text-white font-bold text-sm">{activeProposal.opportunity.daysRemaining !== null ? activeProposal.opportunity.daysRemaining : "N/A"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-[9px] font-mono uppercase mb-2">Rationale</p>
+                      <div className="space-y-1">
+                        {activeProposal.bidDecision.rationale.map((reason: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 text-sm">
+                            <span className="text-[#00e5a0] shrink-0 mt-0.5">•</span>
+                            <span className="text-gray-300">{reason}</span>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
 
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="border-t border-white/5 overflow-hidden">
-                                <div className="p-3 sm:p-5 space-y-4 sm:space-y-5 overflow-x-auto">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 text-xs">
-                                    <div className="min-w-0"><p className="text-gray-600 font-mono uppercase text-[9px] sm:text-[10px] mb-1">Solicitation</p><p className="text-gray-300 text-xs break-words">{brief.opportunity.solicitation}</p></div>
-                                    <div className="min-w-0"><p className="text-gray-600 font-mono uppercase text-[9px] sm:text-[10px] mb-1">NAICS</p><p className="text-gray-300 text-xs">{brief.opportunity.naics}</p></div>
-                                    <div className="min-w-0"><p className="text-gray-600 font-mono uppercase text-[9px] sm:text-[10px] mb-1">Set-Aside</p><p className="text-purple-300 text-xs break-words">{brief.opportunity.set_aside}</p></div>
-                                    <div className="min-w-0"><p className="text-gray-600 font-mono uppercase text-[9px] sm:text-[10px] mb-1">Deadline</p><p className={`text-xs ${brief.opportunity.days_remaining && brief.opportunity.days_remaining <= 7 ? "text-red-400 font-bold" : "text-gray-300"}`}>{brief.opportunity.deadline}{brief.opportunity.days_remaining !== null ? ` (${brief.opportunity.days_remaining}d)` : ""}</p></div>
-                                  </div>
+                  {/* Execution Plan */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Clock size={14} className="text-[#8b5cf6]" /> Execution Plan
+                    </h3>
+                    <div className="space-y-4">
+                      {activeProposal.executionPlan.phases.map((phase: any, i: number) => (
+                        <div key={i} className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                          <div className="flex justify-between items-start mb-2">
+                            <p className="text-white font-bold text-sm">{phase.name}</p>
+                            <p className="text-gray-500 text-xs">{phase.duration}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {phase.tasks.map((task: string, j: number) => (
+                              <span key={j} className="text-[8px] font-mono px-2 py-0.5 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/30 rounded">
+                                {task}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
 
-                                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white/[0.02] border border-white/5 p-3 sm:p-4 rounded space-y-3 min-w-0">
-                                    <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2"><Target size={10} className="text-[#0066ff] sm:size-3 shrink-0" /> Proposal Brief</h4>
-                                    <div className="min-w-0"><p className="text-gray-500 text-[9px] sm:text-[10px] font-mono uppercase mb-1">Rationale</p><p className="text-gray-300 text-xs sm:text-sm break-words">{brief.proposal_brief.rationale}</p></div>
-                                    <div className="min-w-0"><p className="text-gray-500 text-[9px] sm:text-[10px] font-mono uppercase mb-1">Strategy</p><p className="text-gray-300 text-xs sm:text-sm break-words">{brief.proposal_brief.pursuit_strategy}</p></div>
-                                    <div className="min-w-0">
-                                      <p className="text-gray-500 text-[9px] sm:text-[10px] font-mono uppercase mb-1.5">Capabilities</p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {brief.proposal_brief.capability_alignment.map((cap: string, i: number) => (
-                                          <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="text-[8px] sm:text-[10px] font-mono px-2 py-0.5 bg-green-500/10 text-green-300 border border-green-500/20 rounded flex items-center gap-1 whitespace-nowrap">
-                                            <Shield size={7} className="sm:size-2" /><span className="hidden sm:inline">{cap}</span><span className="sm:hidden">{cap?.substring(0, 8)}</span>
-                                          </motion.span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                                      <div className="min-w-0"><p className="text-gray-500 text-[9px] sm:text-[10px] font-mono uppercase mb-1">Personnel</p><p className="text-gray-300 text-xs break-words">{brief.proposal_brief.key_personnel_needed}</p></div>
-                                      <div className="min-w-0"><p className="text-gray-500 text-[9px] sm:text-[10px] font-mono uppercase mb-1">Effort</p><p className="text-gray-300 text-xs break-words">{brief.proposal_brief.estimated_level_of_effort}</p></div>
-                                    </div>
-                                  </motion.div>
+                  {/* Key Milestones */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Clipboard size={14} className="text-[#00e5a0]" /> Key Milestones
+                    </h3>
+                    <div className="space-y-2">
+                      {activeProposal.executionPlan.keyMilestones.map((milestone: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-white/[0.02] rounded border border-white/5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#00e5a0] text-xs">✓</span>
+                            <span className="text-sm text-gray-300">{milestone.name}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">{milestone.date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
 
-                                  <div className="min-w-0">
-                                    <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-2">Next Steps</h4>
-                                    <div className="space-y-1.5">
-                                      {brief.next_steps.map((step: string, i: number) => (
-                                        <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.06 }} className="flex items-start gap-2 text-xs">
-                                          <span className="text-[#0066ff] font-mono shrink-0 mt-0.5"><CheckCircle2 size={10} className="sm:size-3" /></span>
-                                          <span className="text-gray-300 break-words">{step}</span>
-                                        </motion.div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      );
-                    })}
+                  {/* Cost Estimate */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <TrendingUp size={14} className="text-[#ffb800]" /> Cost Estimate
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded text-center">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Low</p>
+                        <p className="text-white font-bold">{activeProposal.costEstimate.estimatedRange.low}</p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded text-center">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">Mid</p>
+                        <p className="text-white font-bold">{activeProposal.costEstimate.estimatedRange.mid}</p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded text-center">
+                        <p className="text-gray-600 text-[9px] font-mono uppercase mb-1">High</p>
+                        <p className="text-white font-bold">{activeProposal.costEstimate.estimatedRange.high}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-[9px] font-mono uppercase mb-2">Methodology</p>
+                      <p className="text-gray-300 text-sm mb-3">{activeProposal.costEstimate.methodology}</p>
+                      <p className="text-gray-500 text-[9px] font-mono uppercase mb-2">Assumptions</p>
+                      <ul className="space-y-1">
+                        {activeProposal.costEstimate.assumptions.map((assumption: string, i: number) => (
+                          <li key={i} className="text-gray-300 text-xs flex gap-2">
+                            <span className="text-gray-600">•</span> {assumption}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </motion.div>
+
+                  {/* Proposal Outline */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <BookOpen size={14} className="text-[#0066ff]" /> Proposal Outline (3 Volumes)
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-[#0066ff] font-bold text-xs uppercase mb-2">Volume 1: Technical</p>
+                        <ol className="space-y-1 text-xs text-gray-300">
+                          {activeProposal.proposalOutline.volume1_technical.map((item: string, i: number) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-[#8b5cf6] font-bold text-xs uppercase mb-2">Volume 2: Past Performance</p>
+                        <ol className="space-y-1 text-xs text-gray-300">
+                          {activeProposal.proposalOutline.volume2_past_performance.map((item: string, i: number) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded">
+                        <p className="text-[#00e5a0] font-bold text-xs uppercase mb-2">Volume 3: Pricing</p>
+                        <ol className="space-y-1 text-xs text-gray-300">
+                          {activeProposal.proposalOutline.volume3_pricing.map((item: string, i: number) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Compliance Checklist */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <ListChecks size={14} className="text-[#00e5a0]" /> Compliance Checklist
+                    </h3>
+                    <div className="space-y-2">
+                      {activeProposal.complianceChecklist.map((item: any, i: number) => (
+                        <div key={i} className="flex items-center gap-3 p-2 bg-white/[0.02] rounded border border-white/5">
+                          <div className={`w-4 h-4 rounded border text-xs flex items-center justify-center ${item.status === "ready" ? "bg-[#00e5a0]/20 border-[#00e5a0]/40 text-[#00e5a0]" : item.status === "action_needed" ? "bg-[#ffb800]/20 border-[#ffb800]/40 text-[#ffb800]" : "bg-white/10 border-white/20 text-gray-400"}`}>
+                            {item.status === "ready" ? "✓" : item.status === "action_needed" ? "!" : "?"}
+                          </div>
+                          <span className="text-sm text-gray-300 flex-1">{item.item}</span>
+                          <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${item.required ? "bg-red-500/20 text-red-300" : "bg-gray-500/20 text-gray-400"}`}>
+                            {item.required ? "Required" : "Optional"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Next Steps */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="tech-card p-4 sm:p-6">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <ArrowRight size={14} className="text-[#0066ff]" /> Next Steps
+                    </h3>
+                    <ol className="space-y-2">
+                      {activeProposal.nextSteps.map((step: string, i: number) => (
+                        <li key={i} className="flex gap-3">
+                          <span className="text-[#0066ff] font-bold text-xs shrink-0 w-5">{i + 1}.</span>
+                          <span className="text-gray-300 text-sm">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </motion.div>
+
+                  <motion.div className="flex gap-3 justify-center">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowProposalForm(true)} className="px-4 py-2 bg-[#0066ff]/20 border border-[#0066ff]/40 text-[#0066ff] text-sm rounded hover:bg-[#0066ff]/30 transition-colors">
+                      Generate Another
+                    </motion.button>
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setActiveProposal(null)} className="px-4 py-2 bg-white/10 border border-white/20 text-white text-sm rounded hover:bg-white/15 transition-colors">
+                      View List
+                    </motion.button>
+                  </motion.div>
+                </>
+              ) : showProposalForm ? (
+                <>
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="tech-card p-4 sm:p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-lg font-bold text-white">Generate AI Proposal</h2>
+                      <motion.button whileHover={{ scale: 1.1 }} onClick={() => setShowProposalForm(false)} className="text-gray-400 hover:text-white">
+                        <X size={18} />
+                      </motion.button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Select Opportunity *</label>
+                        <select value={selectedOppForProposal} onChange={(e) => setSelectedOppForProposal(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff]">
+                          <option value="">Choose an opportunity...</option>
+                          {opportunities.map((opp: SamOpportunity) => (
+                            <option key={opp.noticeId} value={opp.noticeId}>
+                              {opp.title} ({opp.score} pts)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Company Profile Notes</label>
+                        <textarea value={proposalInputs.companyProfile} onChange={(e) => setProposalInputs({ ...proposalInputs, companyProfile: e.target.value })} placeholder="Your company's relevant background and capabilities..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Team Composition</label>
+                        <textarea value={proposalInputs.teamComposition} onChange={(e) => setProposalInputs({ ...proposalInputs, teamComposition: e.target.value })} placeholder="Key team members, roles, and experience..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Past Performance References</label>
+                        <textarea value={proposalInputs.pastPerformance} onChange={(e) => setProposalInputs({ ...proposalInputs, pastPerformance: e.target.value })} placeholder="Relevant past contracts and accomplishments..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Technical Approach</label>
+                        <textarea value={proposalInputs.technicalApproach} onChange={(e) => setProposalInputs({ ...proposalInputs, technicalApproach: e.target.value })} placeholder="Your proposed methodology and solution approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Pricing Strategy</label>
+                        <textarea value={proposalInputs.pricingStrategy} onChange={(e) => setProposalInputs({ ...proposalInputs, pricingStrategy: e.target.value })} placeholder="Your pricing model and cost estimation approach..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-2">Additional Notes</label>
+                        <textarea value={proposalInputs.additionalNotes} onChange={(e) => setProposalInputs({ ...proposalInputs, additionalNotes: e.target.value })} placeholder="Any other information for proposal generation..." className="w-full bg-white/5 border border-white/10 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[#0066ff] resize-none h-20" />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 mt-6">
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={generateProposal} disabled={proposalLoading} className="flex-1 px-4 py-2 bg-[#00e5a0] text-black font-bold text-sm rounded hover:bg-[#00cc8a] transition-colors disabled:opacity-50">
+                        {proposalLoading ? <RefreshCw size={14} className="inline mr-2 animate-spin" /> : <Zap size={14} className="inline mr-2" />}
+                        Generate Proposal
+                      </motion.button>
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowProposalForm(false)} className="px-4 py-2 bg-white/10 border border-white/20 text-white text-sm rounded hover:bg-white/15 transition-colors">
+                        Cancel
+                      </motion.button>
+                    </div>
                   </motion.div>
                 </>
               ) : (
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="tech-card p-10 text-center">
-                  <Target size={36} className="mx-auto mb-3 text-gray-600" />
-                  <p className="text-gray-400 mb-1">No proposal briefs generated yet</p>
-                  <p className="text-gray-500 text-sm mb-5">Generate a Daily Digest to scan SAM.gov and create bid/no-bid recommendation briefs for matched opportunities.</p>
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => { handleTabSwitch("digest"); fetchDigest(); }} className="px-5 py-2.5 bg-[#00e5a0] text-black text-sm rounded hover:bg-[#00cc8a] transition-colors font-medium">
-                    <Zap size={14} className="inline mr-2" /> Generate Daily Digest
-                  </motion.button>
-                </motion.div>
+                <>
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-white">Generated Proposals</h2>
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowProposalForm(true)} className="px-4 py-2 bg-[#00e5a0] text-black font-bold text-sm rounded hover:bg-[#00cc8a] transition-colors flex items-center gap-2">
+                      <Plus size={14} /> New Proposal
+                    </motion.button>
+                  </motion.div>
+
+                  {proposals.length > 0 ? (
+                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-3">
+                      {proposals.map((proposal: any, idx: number) => (
+                        <motion.div key={idx} variants={staggerItem} className="tech-card p-4 sm:p-5 cursor-pointer hover:border-white/15 transition-colors" onClick={() => setActiveProposal(proposal)}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <span className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 border rounded font-bold" style={{ borderColor: proposal.bidDecision.recommendation === "STRONG BID" ? "#00e5a0" : proposal.bidDecision.recommendation === "CONDITIONAL BID" ? "#ffb800" : "#ff6b6b", color: proposal.bidDecision.recommendation === "STRONG BID" ? "#00e5a0" : proposal.bidDecision.recommendation === "CONDITIONAL BID" ? "#ffb800" : "#ff6b6b" }}>
+                                  {proposal.bidDecision.recommendation}
+                                </span>
+                                <span className="text-[9px] sm:text-[10px] font-mono text-gray-500">{proposal.bidDecision.confidence}% confidence</span>
+                              </div>
+                              <h3 className="text-white font-bold text-xs sm:text-sm break-words">{proposal.opportunity.title}</h3>
+                              <p className="text-gray-500 text-xs mt-1">{proposal.opportunity.organization}</p>
+                            </div>
+                            <motion.div whileHover={{ x: 2 }} className="shrink-0">
+                              <ArrowRight size={14} className="text-gray-500" />
+                            </motion.div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="tech-card p-10 text-center">
+                      <Briefcase size={36} className="mx-auto mb-3 text-gray-600" />
+                      <p className="text-gray-400 mb-1">No proposals generated yet</p>
+                      <p className="text-gray-500 text-sm mb-5">Create your first AI-generated proposal by selecting an opportunity and filling in your details.</p>
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowProposalForm(true)} className="px-5 py-2.5 bg-[#00e5a0] text-black text-sm rounded hover:bg-[#00cc8a] transition-colors font-medium">
+                        <Plus size={14} className="inline mr-2" /> Generate First Proposal
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </>
               )}
             </motion.div>
           )}

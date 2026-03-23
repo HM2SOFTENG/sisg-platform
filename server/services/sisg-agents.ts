@@ -368,101 +368,8 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
   const outputs: AgentOutput[] = [];
 
   try {
-<<<<<<< Updated upstream
     const apiKey = process.env.SAM_GOV_API_KEY;
     if (!apiKey) {
-=======
-    const apiKey = process.env.SAM_GOV_API_KEY || "DEMO_KEY";
-    const naicsCodes = agent.config.naicsCodes || ["541512", "541511"];
-
-    // Calculate date range (last 7 days)
-    const to = new Date();
-    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const fromStr = from.toISOString().split("T")[0];
-
-    // Fetch from SAM.gov (demo mode: limit results)
-    const naicsParam = naicsCodes[0]; // Use first NAICS code for demo
-    const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=10&postedFrom=${fromStr}&naicsCode=${naicsParam}`;
-
-    const response = await fetchWithTimeout(url, {}, 8000);
-
-    if (response?.ok) {
-      const data = await response.json() as any;
-      const freshOpportunities = data.opportunitiesData || [];
-
-      // Read existing opportunities from storage
-      const existingOpps = storage.read("sam_opportunities") || [];
-      const existingMap = new Map(existingOpps.map((opp: any) => [opp.noticeId, opp]));
-
-      // Track which opportunities are new
-      let newCount = 0;
-
-      // Upsert fresh opportunities into the map
-      for (const opp of freshOpportunities) {
-        if (!existingMap.has(opp.noticeId)) {
-          newCount++;
-        }
-        existingMap.set(opp.noticeId, {
-          noticeId: opp.noticeId,
-          title: opp.title,
-          responseDeadLine: opp.responseDeadLine,
-          organizationName: opp.organizationName,
-          postedDate: opp.postedDate,
-          naicsCode: opp.naicsCode,
-          description: opp.description,
-        });
-      }
-
-      // Prune expired opportunities (deadline + 7 day grace period)
-      const now = new Date();
-      const prunedMap = new Map<string, any>();
-
-      for (const [noticeId, opp] of existingMap.entries()) {
-        const deadline = new Date(opp.responseDeadLine);
-        const graceEnd = new Date(deadline.getTime() + 7 * 24 * 60 * 60 * 1000);
-        if (graceEnd > now) {
-          prunedMap.set(noticeId, opp);
-        }
-      }
-
-      // Cap at 200 records, sorted by most recent postedDate
-      const finalOpps = Array.from(prunedMap.values())
-        .sort((a: any, b: any) => {
-          const dateA = new Date(a.postedDate || 0).getTime();
-          const dateB = new Date(b.postedDate || 0).getTime();
-          return dateB - dateA; // newest first
-        })
-        .slice(0, 200);
-
-      // Write merged results back to storage
-      storage.write("sam_opportunities", finalOpps);
-
-      const totalTracked = finalOpps.length;
-
-      if (freshOpportunities.length > 0) {
-        const reportCount = Math.min(freshOpportunities.length, 3); // Show top 3
-        outputs.push({
-          type: "alert",
-          title: "SAM.gov Opportunities Update",
-          message: `Found ${newCount} new opportunities (${totalTracked} total tracked).`,
-          severity: "success",
-          data: freshOpportunities.slice(0, reportCount).map((opp: any) => ({
-            title: opp.title,
-            notice_id: opp.noticeId,
-            deadline: opp.responseDeadLine,
-            agency: opp.organizationName,
-          })),
-        });
-      } else {
-        outputs.push({
-          type: "notification",
-          title: "SAM.gov Check Complete",
-          message: `No new opportunities found in the last 7 days. ${totalTracked} opportunities currently tracked.`,
-          severity: "info",
-        });
-      }
-    } else {
->>>>>>> Stashed changes
       outputs.push({
         type: "alert",
         title: "SAM.gov API Check",
@@ -587,10 +494,23 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const highValue = scored.filter((s: any) => s._score >= 30);
     const medValue = scored.filter((s: any) => s._score >= 15 && s._score < 30);
 
-    // Persist opportunities to storage for proposals agent — only if we got new data
-    // If API failed but we have previous data, preserve it instead of overwriting with empty array
+    // Persist opportunities to storage with deduplication
+    // Merge new results with existing data instead of overwriting
     if (scored.length > 0) {
-      const storedOpps = scored.slice(0, 50).map((opp: any) => ({
+      const existingOpps = storage.read("sam_opportunities") as any[];
+      const mergedMap = new Map<string, any>();
+
+      // Load existing opportunities into map
+      for (const opp of existingOpps) {
+        const key = opp.noticeId || opp.id;
+        if (key) mergedMap.set(key, opp);
+      }
+
+      // Track genuinely new opportunities
+      let newCount = 0;
+
+      // Upsert scored opportunities (new data overwrites old for same noticeId)
+      const freshOpps = scored.slice(0, 50).map((opp: any) => ({
         id: opp.noticeId,
         noticeId: opp.noticeId,
         title: opp.title || "Untitled",
@@ -627,7 +547,29 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
         resourceLinks: opp.resourceLinks || [],
         fetchedAt: now.toISOString(),
       }));
-      storage.write("sam_opportunities", storedOpps);
+
+      for (const opp of freshOpps) {
+        if (!mergedMap.has(opp.noticeId)) newCount++;
+        mergedMap.set(opp.noticeId, opp);
+      }
+
+      // Prune expired opportunities (deadline + 7 day grace period)
+      const graceMs = 7 * 24 * 60 * 60 * 1000;
+      for (const [key, opp] of mergedMap.entries()) {
+        const deadline = opp.responseDeadline || opp.responseDeadLine;
+        if (deadline) {
+          const graceEnd = new Date(new Date(deadline).getTime() + graceMs);
+          if (graceEnd < now) mergedMap.delete(key);
+        }
+      }
+
+      // Cap at 200 records sorted by score then postedDate
+      const finalOpps = Array.from(mergedMap.values())
+        .sort((a: any, b: any) => (b.score || 0) - (a.score || 0) || new Date(b.postedDate || 0).getTime() - new Date(a.postedDate || 0).getTime())
+        .slice(0, 200);
+
+      storage.write("sam_opportunities", finalOpps);
+      console.log(`[Contracts] Stored ${finalOpps.length} opportunities (${newCount} new, ${finalOpps.length - newCount} existing).`);
     } else if (fetchErrors.length > 0) {
       // API calls failed — don't overwrite stored opportunities, just log the failure
       outputs.push({

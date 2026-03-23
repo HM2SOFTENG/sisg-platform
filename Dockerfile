@@ -27,20 +27,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install build dependencies for native modules (better-sqlite3) and pnpm
-RUN apk add --no-cache python3 make g++ && npm install -g pnpm@10.15.1
+# Install runtime library needed by better-sqlite3 native bindings
+RUN apk add --no-cache libstdc++
 
-# Copy package files and patches
-COPY package.json pnpm-lock.yaml ./
-COPY patches ./patches
-
-# Install production dependencies only (includes native compilation)
-RUN pnpm install --no-frozen-lockfile --prod \
-    && apk del python3 make g++
-
-# Copy built application from builder
+# Copy built application and node_modules from builder
+# (node_modules already has better-sqlite3 compiled with native bindings)
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/client/public ./client/public
+COPY package.json ./
 
 # Create data directory for persistent storage
 RUN mkdir -p /app/data

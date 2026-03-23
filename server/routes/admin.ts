@@ -87,20 +87,10 @@ router.get(
         {}
       );
 
-      const monthlyRevenue = [
-        { month: "Jan", revenue: 15000 },
-        { month: "Feb", revenue: 18000 },
-        { month: "Mar", revenue: 21000 },
-        { month: "Apr", revenue: 19000 },
-        { month: "May", revenue: 22000 },
-        { month: "Jun", revenue: 25000 },
-      ];
-
       res.json({
         totalRevenue,
         totalExpenses,
         contractsByStatus,
-        monthlyRevenue,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch financials" });

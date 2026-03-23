@@ -369,6 +369,7 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
 
   try {
     const apiKey = process.env.SAM_GOV_API_KEY;
+    const samBaseUrl = process.env.SAM_GOV_API_URL || "https://api-alpha.sam.gov/opportunities/v2/search";
     if (!apiKey) {
       outputs.push({
         type: "alert",
@@ -404,7 +405,7 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
       const ncode = naicsCodes[i];
       // Wait 1.5s between requests to stay within SAM.gov rate limits
       if (i > 0) await rateLimitDelay(1500);
-      const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=25&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&ncode=${ncode}`;
+      const url = `${samBaseUrl}?api_key=${apiKey}&limit=25&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&ncode=${ncode}`;
       const response = await fetchWithTimeout(url, {}, 20000);
 
       if (response?.ok) {
@@ -437,7 +438,7 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
       const setAside = setAsides[i];
       // Wait between requests to avoid rate limiting
       await rateLimitDelay(1500);
-      const url = `https://api.sam.gov/opportunities/v2/search?api_key=${apiKey}&limit=15&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&typeOfSetAside=${setAside}`;
+      const url = `${samBaseUrl}?api_key=${apiKey}&limit=15&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&typeOfSetAside=${setAside}`;
       const response = await fetchWithTimeout(url, {}, 20000);
       if (response?.ok) {
         const data = await response.json() as any;

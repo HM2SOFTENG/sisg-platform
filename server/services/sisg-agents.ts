@@ -928,17 +928,9 @@ async function executeCyber(agent: SisgAgent): Promise<AgentOutput[]> {
       nvdHeaders["apiKey"] = process.env.NVD_API_KEY!;
     }
 
-<<<<<<< Updated upstream
     let allVulnerabilities: any[] = [];
     let apiError = false;
     let lastStatus = "";
-=======
-    const nvdHeaders: Record<string, string> = {};
-    if (process.env.NVD_API_KEY) {
-      nvdHeaders["apiKey"] = process.env.NVD_API_KEY;
-    }
-    const response = await fetchWithTimeout(url, { headers: nvdHeaders }, 8000);
->>>>>>> Stashed changes
 
     for (const severity of severities) {
       const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=5&pubStartDate=${pubStartDate}T00:00:00&pubEndDate=${pubEndDate}T23:59:59&cvssV3Severity=${severity}`;

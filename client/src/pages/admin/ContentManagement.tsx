@@ -223,7 +223,7 @@ const ContentManagement: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="w-full sm:w-auto flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-mono text-xs sm:text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
           >
             <Plus className="w-4 h-4" />
             Add Content
@@ -231,33 +231,33 @@ const ContentManagement: React.FC = () => {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {kpis.map((kpi, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="tech-card"
+              className="tech-card p-3 sm:p-4"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="font-mono text-xs text-gray-400 uppercase tracking-wider mb-2">
+                  <p className="font-mono text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider mb-2">
                     {kpi.label}
                   </p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-[#0066ff] to-[#00d4ff] bg-clip-text text-transparent">
+                  <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#0066ff] to-[#00d4ff] bg-clip-text text-transparent">
                     {kpi.value}
                   </p>
                 </div>
-                <div className="text-[#00d4ff] opacity-60">{kpi.icon}</div>
+                <div className="text-[#00d4ff] opacity-60 text-sm sm:text-base">{kpi.icon}</div>
               </div>
             </motion.div>
           ))}
         </div>
 
         {/* Search and Filters */}
-        <div className="tech-card">
-          <div className="flex flex-col gap-4">
+        <div className="tech-card p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
@@ -265,11 +265,11 @@ const ContentManagement: React.FC = () => {
                 placeholder="Search by title or slug..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#0066ff]"
+                className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#0066ff] text-sm"
               />
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               {(['all', 'pages', 'blog', 'sections'] as const).map(filter => (
                 <motion.button
                   key={filter}
@@ -309,10 +309,10 @@ const ContentManagement: React.FC = () => {
                     setExpandedId(expandedId === item.id ? null : item.id)
                   }
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h3 className="font-sora text-lg font-semibold text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="font-sora text-base sm:text-lg font-semibold text-white break-words">
                           {item.title}
                         </h3>
                         <span className={`px-2 py-1 rounded text-xs font-mono font-semibold ${getTypeColor(item.type)}`}>

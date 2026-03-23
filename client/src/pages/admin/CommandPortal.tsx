@@ -231,9 +231,9 @@ function AgentTile({ agent, onRun, onToggle, expanded, onExpand }: {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 space-y-2 border-t border-[var(--border)] pt-2">
+            <div className="px-2 sm:px-3 pb-3 space-y-2 border-t border-[var(--border)] pt-2">
               <p className="text-xs text-[var(--muted-foreground)]">{agent.description}</p>
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[8px] sm:text-[10px]">
                 <div>
                   <span className="text-[var(--muted-foreground)]">Schedule:</span>
                   <span className="ml-1 font-mono text-[var(--foreground)]">{agent.schedule || "manual"}</span>
@@ -636,8 +636,8 @@ function AutomationPanel({ visible }: { visible: boolean }) {
             initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
             className="overflow-hidden"
           >
-            <div className="p-4 border-b border-[var(--border)] space-y-2">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="p-3 sm:p-4 border-b border-[var(--border)] space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   value={newJob.name} onChange={(e) => setNewJob({ ...newJob, name: e.target.value })}
                   placeholder="Job name" className="bg-[var(--background)] border border-[var(--border)] text-xs px-2 py-1.5 font-mono text-[var(--foreground)] focus:outline-none focus:border-[#0066ff]/30"
@@ -998,7 +998,7 @@ export default function CommandPortal() {
         <SystemHealthBar health={health} loading={healthLoading} />
 
         {/* ============ KPI ROW ============ */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <KpiCard label="Agents Online" value={stats.deployed} icon={Zap} color="#00e5a0" pulse sub={`${agents.length} total`} />
           <KpiCard label="Running" value={stats.running} icon={Loader2} color="#00d4ff" pulse={stats.running > 0} />
           <KpiCard label="Total Runs" value={stats.totalRuns} icon={Activity} color="#0066ff" />
@@ -1047,7 +1047,7 @@ export default function CommandPortal() {
               </div>
 
               {loading ? (
-                <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="h-28 bg-[var(--background)] border border-[var(--border)] animate-pulse" />
                   ))}

@@ -887,8 +887,8 @@ function SystemStatusCard({
   metrics: Metrics | null;
 }) {
   return (
-    <div className="p-4 space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <StatusCard icon={Bot} label="Agents" value={`${metrics?.activeAgents || 0}/${metrics?.totalAgents || 0}`} sub="active" color="#8b5cf6" />
         <StatusCard icon={Zap} label="Tasks (24h)" value={String(metrics?.tasksLast24h || 0)} sub={`${metrics?.completedLast24h || 0} done`} color="#0066ff" />
         <StatusCard icon={Activity} label="Queue" value={String(metrics?.queuedNow || 0)} sub={`${metrics?.runningNow || 0} running`} color="#00e5a0" />
@@ -1007,8 +1007,8 @@ function MetricsCard({ metrics, tasks }: { metrics: Metrics | null; tasks: BotTa
   });
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         <MetricBox label="Success Rate" value={`${successRate}%`} color="#00e5a0" />
         <MetricBox label="Avg Completion" value="2.3s" color="#0066ff" />
         <MetricBox label="Failed Tasks" value={String(metrics.failedLast24h ?? 0)} color={(metrics.failedLast24h ?? 0) > 0 ? "#ff4444" : "#00e5a0"} />

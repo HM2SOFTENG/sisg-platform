@@ -443,7 +443,7 @@ const AdminSettings: React.FC = () => {
             <h2 className="font-sora text-xl font-bold">System Information</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
               <p className="font-mono text-xs text-gray-400 uppercase tracking-wider mb-1">
                 Version

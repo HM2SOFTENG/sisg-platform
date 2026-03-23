@@ -121,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         {loadingKpis ? (
           Array.from({ length: 4 }).map((_, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.4 }}>
@@ -131,7 +131,7 @@ export default function Dashboard() {
             </motion.div>
           ))
         ) : kpis.length === 0 ? (
-          <div className="col-span-2 lg:col-span-4 tech-card p-4 text-center text-gray-500">No KPI data available</div>
+          <div className="col-span-1 sm:col-span-2 lg:col-span-4 tech-card p-4 text-center text-gray-500">No KPI data available</div>
         ) : (
           kpis.map((kpi, i) => (
             <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07, duration: 0.4 }}>
@@ -151,9 +151,9 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-max md:auto-rows-auto">
         {/* Revenue Chart */}
-        <div className="lg:col-span-2 tech-card p-5">
+        <div className="lg:col-span-2 md:col-span-2 tech-card p-4 sm:p-5 min-h-0">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider">Revenue Trend</div>
@@ -184,7 +184,7 @@ export default function Dashboard() {
         </div>
 
         {/* Pipeline Mix */}
-        <div className="tech-card p-5">
+        <div className="md:col-span-2 lg:col-span-1 tech-card p-4 sm:p-5 min-h-0">
           <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Pipeline Mix</div>
           <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>By Service Line</div>
           {loadingPipeline ? (
@@ -217,7 +217,7 @@ export default function Dashboard() {
       </div>
 
       {/* Activity Feed */}
-      <div className="tech-card p-5">
+      <div className="tech-card p-4 sm:p-5">
         <div className="flex items-center gap-2 mb-4">
           <Terminal className="w-4 h-4 text-[#0066ff]" />
           <div className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Activity Feed</div>
@@ -234,12 +234,12 @@ export default function Dashboard() {
           <div className="space-y-3">
             {activityFeed.map((item, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06, duration: 0.3 }}>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3 min-w-0">
                   <div className="w-1.5 h-1.5 mt-1.5 flex-shrink-0" style={{ background: item.color || "#0066ff" }} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-gray-300 text-sm leading-relaxed">{item.msg || item.message}</div>
+                    <div className="text-gray-300 text-xs sm:text-sm leading-relaxed break-words">{item.msg || item.message}</div>
                   </div>
-                  <div className="text-gray-600 text-[10px] font-mono flex-shrink-0">{item.time || "recently"}</div>
+                  <div className="text-gray-600 text-[9px] sm:text-[10px] font-mono flex-shrink-0 whitespace-nowrap">{item.time || "recently"}</div>
                 </div>
               </motion.div>
             ))}

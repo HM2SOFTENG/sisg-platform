@@ -217,7 +217,7 @@ export default function ProjectManagement() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ staggerChildren: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
           {kpis.map((kpi, index) => (
             <motion.div
@@ -225,19 +225,19 @@ export default function ProjectManagement() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="tech-card p-5 border border-gray-700"
+              className="tech-card p-3 sm:p-5 border border-gray-700"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
+                  <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                     {kpi.label}
                   </p>
-                  <p className="text-2xl font-bold text-white mt-2">
+                  <p className="text-lg sm:text-2xl font-bold text-white mt-2">
                     {kpi.value}
-                    {kpi.unit && <span className="text-sm text-gray-400">{kpi.unit}</span>}
+                    {kpi.unit && <span className="text-xs sm:text-sm text-gray-400">{kpi.unit}</span>}
                   </p>
                 </div>
-                <div className={`bg-gradient-to-br ${kpi.color} p-3 rounded-lg text-white`}>
+                <div className={`bg-gradient-to-br ${kpi.color} p-2 sm:p-3 rounded-lg text-white flex-shrink-0`}>
                   {kpi.icon}
                 </div>
               </div>
@@ -334,14 +334,14 @@ export default function ProjectManagement() {
                   </div>
 
                   {/* Details */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-700">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-500" />
-                      <span className="text-xs text-gray-400">{project.lead}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-2 border-t border-gray-700">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs text-gray-400 truncate">{project.lead}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <span className="text-xs text-gray-400">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs text-gray-400">
                         {new Date(project.deadline).toLocaleDateString()}
                       </span>
                     </div>
@@ -369,9 +369,9 @@ export default function ProjectManagement() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               onClick={(e) => e.stopPropagation()}
-              className="tech-card p-6 border border-gray-700 w-full max-w-md"
+              className="tech-card p-4 sm:p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto"
             >
-              <h2 className="text-xl font-bold text-white mb-4" style={{ fontFamily: "Sora, sans-serif" }}>
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-4" style={{ fontFamily: "Sora, sans-serif" }}>
                 Add New Project
               </h2>
               <form onSubmit={handleAddProject} className="space-y-4">

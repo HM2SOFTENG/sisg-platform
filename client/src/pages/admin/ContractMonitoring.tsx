@@ -119,27 +119,27 @@ export default function ContractMonitoring() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Active Value</p>
-            <p className="text-2xl font-bold text-white mt-3">{formatValue(stats.totalActiveValue)}</p>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Active Value</p>
+            <p className="text-lg sm:text-2xl font-bold text-white mt-2 sm:mt-3">{formatValue(stats.totalActiveValue)}</p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">In Progress</p>
-            <p className="text-2xl font-bold" style={{ color: "#0066ff" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">In Progress</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#0066ff" }}>
               {stats.contractsInProgress}
             </p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Avg Completion %</p>
-            <p className="text-2xl font-bold" style={{ color: "#00e5a0" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Avg Completion %</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#00e5a0" }}>
               {stats.avgCompletion}%
             </p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">At Risk</p>
-            <p className="text-2xl font-bold" style={{ color: "#ff3b3b" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">At Risk</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#ff3b3b" }}>
               {stats.atRisk}
             </p>
           </div>
@@ -150,7 +150,7 @@ export default function ContractMonitoring() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
         >
           <button
             onClick={() => {
@@ -201,16 +201,16 @@ export default function ContractMonitoring() {
               const completion = contract.completionPercent || 0;
               return (
                 <div key={contract.id} className="tech-card p-5 space-y-4">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0">
                     <div className="flex-1">
-                      <h3 className="text-white font-bold text-lg" style={{ fontFamily: "Sora, sans-serif" }}>
+                      <h3 className="text-white font-bold text-base sm:text-lg" style={{ fontFamily: "Sora, sans-serif" }}>
                         {contract.title}
                       </h3>
-                      <p className="text-gray-400 text-sm mt-1">{contract.client}</p>
+                      <p className="text-gray-400 text-xs sm:text-sm mt-1">{contract.client}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Contract Value</p>
-                      <p className="text-white font-bold text-lg">{formatValue(contract.value)}</p>
+                    <div className="text-left sm:text-right">
+                      <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Contract Value</p>
+                      <p className="text-white font-bold text-base sm:text-lg">{formatValue(contract.value)}</p>
                     </div>
                   </div>
 

@@ -200,25 +200,25 @@ const UserManagement: React.FC = () => {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {kpis.map((kpi, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="tech-card"
+              className="tech-card p-3 sm:p-4"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="font-mono text-xs text-gray-400 uppercase tracking-wider mb-2">
+                  <p className="font-mono text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider mb-2">
                     {kpi.label}
                   </p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-[#0066ff] to-[#00d4ff] bg-clip-text text-transparent">
+                  <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#0066ff] to-[#00d4ff] bg-clip-text text-transparent">
                     {kpi.value}
                   </p>
                 </div>
-                <div className="text-[#00d4ff] opacity-60">{kpi.icon}</div>
+                <div className="text-[#00d4ff] opacity-60 text-sm sm:text-base flex-shrink-0">{kpi.icon}</div>
               </div>
             </motion.div>
           ))}
@@ -289,7 +289,7 @@ const UserManagement: React.FC = () => {
         </div>
 
         {/* Team Members Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {loading ? (
             <p className="text-center text-gray-400 col-span-2">Loading members...</p>
           ) : filteredMembers.length === 0 ? (

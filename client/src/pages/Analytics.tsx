@@ -91,11 +91,11 @@ export default function Analytics() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4">
         {/* Win Rate */}
-        <div className="tech-card p-5">
-          <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Proposal Win Rate</div>
-          <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>6-Month Trend (%)</div>
+        <div className="tech-card p-3 sm:p-5 overflow-x-auto">
+          <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Proposal Win Rate</div>
+          <div className="text-white font-bold text-xs sm:text-sm mb-3 sm:mb-4" style={{ fontFamily: "Sora, sans-serif" }}>6-Month Trend (%)</div>
           {loadingWinRate ? (
             <div className="h-[160px] flex items-center justify-center text-gray-500">Loading chart...</div>
           ) : winRateData.length === 0 ? (
@@ -119,9 +119,9 @@ export default function Analytics() {
         </div>
 
         {/* Headcount */}
-        <div className="tech-card p-5">
-          <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Headcount Growth</div>
-          <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Total FTE Over Time</div>
+        <div className="tech-card p-3 sm:p-5 overflow-x-auto">
+          <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Headcount Growth</div>
+          <div className="text-white font-bold text-xs sm:text-sm mb-3 sm:mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Total FTE Over Time</div>
           {loadingHeadcount ? (
             <div className="h-[160px] flex items-center justify-center text-gray-500">Loading chart...</div>
           ) : headcountData.length === 0 ? (
@@ -145,11 +145,11 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         {/* Service Revenue */}
-        <div className="tech-card p-5">
-          <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Revenue by Service</div>
-          <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>YTD Revenue ($M)</div>
+        <div className="tech-card p-3 sm:p-5 overflow-x-auto">
+          <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Revenue by Service</div>
+          <div className="text-white font-bold text-xs sm:text-sm mb-3 sm:mb-4" style={{ fontFamily: "Sora, sans-serif" }}>YTD Revenue ($M)</div>
           {loadingService ? (
             <div className="h-[160px] flex items-center justify-center text-gray-500">Loading chart...</div>
           ) : serviceData.length === 0 ? (
@@ -171,9 +171,9 @@ export default function Analytics() {
         </div>
 
         {/* Capability Radar */}
-        <div className="tech-card p-5">
-          <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Capability Assessment</div>
-          <div className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Service Maturity Score</div>
+        <div className="tech-card p-3 sm:p-5 overflow-x-auto">
+          <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-1">Capability Assessment</div>
+          <div className="text-white font-bold text-xs sm:text-sm mb-3 sm:mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Service Maturity Score</div>
           {loadingRadar ? (
             <div className="h-[160px] flex items-center justify-center text-gray-500">Loading chart...</div>
           ) : radarData.length === 0 ? (

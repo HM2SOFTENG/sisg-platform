@@ -104,11 +104,11 @@ export default function Pricing() {
       {/* Pricing Tiers */}
       <section className="pb-16 sm:pb-24">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
             {tiers.map((tier, i) => (
               <motion.div key={tier.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.5 }}>
-                <div className={`tech-card p-6 h-full flex flex-col relative ${tier.popular ? "border-[#0066ff]/40" : ""}`}>
-                  <div className="h-[3px] mb-6 -mx-6 -mt-6" style={{ background: `linear-gradient(90deg, ${tier.accentColor}, transparent)` }} />
+                <div className={`tech-card p-4 sm:p-6 h-full flex flex-col relative ${tier.popular ? "border-[#0066ff]/40" : ""}`}>
+                  <div className="h-[3px] mb-4 sm:mb-6 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6" style={{ background: `linear-gradient(90deg, ${tier.accentColor}, transparent)` }} />
                   {tier.popular && (
                     <div className="absolute top-4 right-4 text-[10px] font-mono px-2 py-1 border" style={{ color: "#0066ff", borderColor: "#0066ff30", background: "#0066ff15" }}>
                       Most Popular
@@ -144,19 +144,19 @@ export default function Pricing() {
       <section className="py-16 sm:py-20 bg-[oklch(0.085_0.025_255)] border-y border-white/8 relative overflow-hidden">
         <div className="absolute inset-0 dot-matrix opacity-40" />
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="mb-10">
-            <span className="section-label mb-4 inline-flex">Business Case</span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mt-4" style={{ fontFamily: "Sora, sans-serif" }}>
+          <div className="mb-8 sm:mb-10">
+            <span className="section-label mb-3 sm:mb-4 inline-flex">Business Case</span>
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-3 sm:mt-4" style={{ fontFamily: "Sora, sans-serif" }}>
               The ROI of <span className="gradient-text">Cybersecurity</span>
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5 mb-8">
             {roiItems.map((item, i) => (
               <motion.div key={item.label} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.4 }}>
-                <div className="tech-card p-6 text-center">
-                  <div className="text-3xl sm:text-4xl font-bold mb-2" style={{ fontFamily: "Sora, sans-serif", color: item.color }}>{item.value}</div>
-                  <div className="text-white font-medium text-sm mb-1" style={{ fontFamily: "Sora, sans-serif" }}>{item.label}</div>
-                  <div className="text-gray-600 text-xs font-mono">{item.note}</div>
+                <div className="tech-card p-4 sm:p-6 text-center">
+                  <div className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-1.5 sm:mb-2" style={{ fontFamily: "Sora, sans-serif", color: item.color }}>{item.value}</div>
+                  <div className="text-white font-medium text-xs sm:text-sm mb-0.5 sm:mb-1" style={{ fontFamily: "Sora, sans-serif" }}>{item.label}</div>
+                  <div className="text-gray-600 text-[10px] sm:text-xs font-mono">{item.note}</div>
                 </div>
               </motion.div>
             ))}
@@ -168,23 +168,23 @@ export default function Pricing() {
       <section className="py-16 sm:py-20 relative overflow-hidden">
         <div className="absolute inset-0 grid-pattern opacity-20" />
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="mb-10">
-            <span className="section-label mb-4 inline-flex">Procurement</span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mt-4" style={{ fontFamily: "Sora, sans-serif" }}>
+          <div className="mb-8 sm:mb-10">
+            <span className="section-label mb-3 sm:mb-4 inline-flex">Procurement</span>
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-3 sm:mt-4" style={{ fontFamily: "Sora, sans-serif" }}>
               Contract <span className="gradient-text">Vehicles</span>
             </h2>
-            <p className="text-gray-400 text-sm mt-2 max-w-xl">Multiple procurement pathways to simplify acquisition for federal agencies and prime contractors.</p>
+            <p className="text-gray-400 text-xs sm:text-sm mt-2 max-w-xl">Multiple procurement pathways to simplify acquisition for federal agencies and prime contractors.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {contractVehicles.map((cv, i) => (
               <motion.div key={cv.name} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07, duration: 0.4 }}>
-                <div className="tech-card p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: cv.color + "15", border: `1px solid ${cv.color}30` }}>
-                    <DollarSign className="w-5 h-5" style={{ color: cv.color }} />
+                <div className="tech-card p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+                  <div className="w-9 sm:w-10 h-9 sm:h-10 flex items-center justify-center flex-shrink-0" style={{ background: cv.color + "15", border: `1px solid ${cv.color}30` }}>
+                    <DollarSign className="w-4 sm:w-5 h-4 sm:h-5" style={{ color: cv.color }} />
                   </div>
-                  <div>
-                    <div className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>{cv.name}</div>
-                    <div className="text-gray-500 text-xs font-mono">{cv.desc}</div>
+                  <div className="min-w-0">
+                    <div className="text-white font-bold text-xs sm:text-sm truncate" style={{ fontFamily: "Sora, sans-serif" }}>{cv.name}</div>
+                    <div className="text-gray-500 text-[10px] sm:text-xs font-mono truncate">{cv.desc}</div>
                   </div>
                 </div>
               </motion.div>

@@ -213,7 +213,7 @@ export default function MarketingDashboard() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ staggerChildren: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
           {kpis.map((kpi, index) => (
             <motion.div
@@ -221,14 +221,14 @@ export default function MarketingDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="tech-card p-5 border border-gray-700"
+              className="tech-card p-3 sm:p-5 border border-gray-700"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
+                  <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                     {kpi.label}
                   </p>
-                  <p className="text-2xl font-bold text-white mt-2">{kpi.value}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-white mt-2">{kpi.value}</p>
                 </div>
                 <div className={`bg-gradient-to-br ${kpi.color} p-3 rounded-lg text-white`}>
                   {kpi.icon}
@@ -362,10 +362,10 @@ export default function MarketingDashboard() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               onClick={(e) => e.stopPropagation()}
-              className="tech-card p-6 border border-gray-700 w-full max-w-md"
+              className="tech-card p-4 sm:p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto"
             >
               <h2
-                className="text-xl font-bold text-white mb-4"
+                className="text-lg sm:text-xl font-bold text-white mb-4"
                 style={{ fontFamily: "Sora, sans-serif" }}
               >
                 Add New Campaign

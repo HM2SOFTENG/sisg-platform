@@ -262,14 +262,14 @@ function DetailModal({ agent, runs, onClose, onDeploy, onStop, onRunNow }: Detai
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                 <div>
-                  <label className="text-[10px] font-mono uppercase text-[var(--muted-foreground)]">Total Runs</label>
-                  <p className="text-sm font-mono text-[var(--foreground)]">{agent.totalRuns}</p>
+                  <label className="text-[8px] sm:text-[10px] font-mono uppercase text-[var(--muted-foreground)]">Total Runs</label>
+                  <p className="text-xs sm:text-sm font-mono text-[var(--foreground)]">{agent.totalRuns}</p>
                 </div>
                 <div>
-                  <label className="text-[10px] font-mono uppercase text-[var(--muted-foreground)]">Success Rate</label>
-                  <p className="text-sm font-mono text-[#00e5a0]">
+                  <label className="text-[8px] sm:text-[10px] font-mono uppercase text-[var(--muted-foreground)]">Success Rate</label>
+                  <p className="text-xs sm:text-sm font-mono text-[#00e5a0]">
                     {agent.totalRuns > 0 ? `${Math.round((agent.successCount / agent.totalRuns) * 100)}%` : "—"}
                   </p>
                 </div>
@@ -701,7 +701,7 @@ export default function SisgAgents() {
 
         {/* Stats */}
         {data && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               icon={CheckCircle2}
               label="Total Agents"
@@ -732,7 +732,7 @@ export default function SisgAgents() {
         {/* Agent Grid */}
         <div>
           {loading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {[...Array(4)].map((_, i) => (
                 <SkeletonCard key={i} />
               ))}

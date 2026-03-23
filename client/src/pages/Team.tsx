@@ -79,22 +79,22 @@ export default function Team() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3 sm:w-3.5 h-3 sm:h-3.5 text-gray-600" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[oklch(0.085_0.025_255)] border border-white/8 text-gray-300 text-xs pl-9 pr-3 py-2.5 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
+            className="w-full bg-[oklch(0.085_0.025_255)] border border-white/8 text-gray-300 text-xs pl-8 sm:pl-9 pr-2.5 sm:pr-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
             placeholder="Search team..."
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
           {depts.map((d) => (
             <button
               key={d}
               onClick={() => setDept(d)}
-              className="text-xs font-mono px-3 py-2 border transition-all"
+              className="text-[11px] sm:text-xs font-mono px-2.5 sm:px-3 py-1.5 sm:py-2 border transition-all whitespace-nowrap"
               style={
                 dept === d
                   ? { borderColor: "#0066ff", background: "#0066ff15", color: "#00d4ff" }

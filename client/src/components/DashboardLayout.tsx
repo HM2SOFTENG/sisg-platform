@@ -203,7 +203,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-56 xl:ml-60">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 bg-[var(--sidebar)]/90 backdrop-blur-sm border-b border-[var(--border)] px-4 sm:px-6 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-20 bg-[var(--sidebar)]/90 backdrop-blur-sm border-b border-[var(--border)] px-3 sm:px-6 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 transition-colors"
@@ -211,26 +211,26 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             <Menu className="w-4 h-4" />
           </button>
 
-          <div className="flex-1 flex items-center gap-3">
-            <div className="relative hidden sm:flex items-center max-w-xs w-full">
-              <Search className="absolute left-3 w-3.5 h-3.5 text-gray-600" />
+          <div className="flex-1 flex items-center gap-2 min-w-0">
+            <div className="relative hidden sm:flex items-center max-w-[10rem] md:max-w-xs w-full flex-shrink-0">
+              <Search className="absolute left-3 w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
               <input
-                className="w-full bg-[var(--background)] border border-[var(--border)] text-gray-400 text-xs pl-9 pr-3 py-2 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700"
+                className="w-full bg-[var(--background)] border border-[var(--border)] text-gray-400 text-xs pl-9 pr-3 py-2 focus:outline-none focus:border-[#0066ff]/30 font-mono placeholder:text-gray-700 truncate"
                 placeholder="Search..."
               />
             </div>
             {title && (
-              <div className="text-[var(--foreground)] font-medium text-sm sm:hidden" style={{ fontFamily: "Sora, sans-serif" }}>{title}</div>
+              <div className="text-[var(--foreground)] font-medium text-xs sm:text-sm sm:hidden truncate flex-1" style={{ fontFamily: "Sora, sans-serif" }}>{title}</div>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/8 transition-colors relative">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <button className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white border border-white/8 transition-colors relative flex-shrink-0">
               <Bell className="w-4 h-4" />
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#0066ff]" />
             </button>
-            <div className="w-8 h-8 bg-[#0066ff]/20 border border-[#0066ff]/30 flex items-center justify-center">
-              <span className="text-[#0066ff] text-xs font-bold font-mono">BS</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[#0066ff]/20 border border-[#0066ff]/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-[#0066ff] text-[10px] sm:text-xs font-bold font-mono">BS</span>
             </div>
           </div>
         </header>

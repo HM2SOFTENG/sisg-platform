@@ -448,7 +448,7 @@ function AgentActivityChart({ agents, runs }: { agents: SisgAgent[]; runs: Agent
           <PieChart className="w-4 h-4 text-[#8b5cf6]" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--muted-foreground)]">Output Severity</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-2">
           {Object.entries(severityBreakdown).map(([sev, count]) => {
             const cfg = severityConfig[sev];
             const SIcon = cfg.icon;

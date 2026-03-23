@@ -80,23 +80,28 @@ export default function Navigation() {
         {/* Top accent line */}
         <div className="h-[2px] bg-gradient-to-r from-transparent via-[#0066ff] to-[#00d4ff]" />
 
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-3">
 
             {/* Logo */}
             <Link href="/">
-              <div className="flex items-center gap-2.5 group">
-                <div className="relative w-8 h-8 bg-[#0066ff] flex items-center justify-center overflow-hidden">
-                  <Shield className="w-4.5 h-4.5 text-white relative z-10" />
+              <div className="flex items-center gap-1.5 sm:gap-2.5 group flex-shrink-0">
+                <div className="relative w-7 h-7 sm:w-8 sm:h-8 bg-[#0066ff] flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <Shield className="w-3.5 sm:w-4.5 h-3.5 sm:h-4.5 text-white relative z-10" />
                   <div className="absolute inset-0 bg-[#00d4ff] translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <Shield className="w-4.5 h-4.5 text-white absolute z-20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <Shield className="w-3.5 sm:w-4.5 h-3.5 sm:h-4.5 text-white absolute z-20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                 </div>
-                <div>
+                <div className="hidden sm:block">
                   <div className="text-white font-bold text-base leading-none tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>
                     SISG
                   </div>
                   <div className="text-[8px] text-[#00d4ff]/70 tracking-[0.2em] uppercase leading-none mt-0.5 font-mono">
                     SENTINEL GROUP
+                  </div>
+                </div>
+                <div className="sm:hidden">
+                  <div className="text-white font-bold text-sm leading-none tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>
+                    SISG
                   </div>
                 </div>
               </div>
@@ -128,7 +133,7 @@ export default function Navigation() {
                           exit={{ opacity: 0, y: 8, scaleY: 0.95 }}
                           transition={{ duration: 0.15 }}
                           style={{ transformOrigin: "top" }}
-                          className="absolute top-full left-0 mt-1 w-72 bg-[oklch(0.09_0.025_255)] border border-white/12 shadow-[0_20px_60px_oklch(0_0_0/0.6)] overflow-hidden"
+                          className="absolute top-full left-0 mt-1 w-72 max-w-[calc(100vw-1rem)] bg-[oklch(0.09_0.025_255)] border border-white/12 shadow-[0_20px_60px_oklch(0_0_0/0.6)] overflow-hidden"
                         >
                           {/* Scan line */}
                           <div className="scan-overlay" />
@@ -202,7 +207,7 @@ export default function Navigation() {
             {/* Mobile Toggle */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden w-9 h-9 flex items-center justify-center text-gray-300 hover:text-white border border-white/10 hover:border-white/25 transition-all"
+              className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-gray-300 hover:text-white border border-white/10 hover:border-white/25 transition-all flex-shrink-0"
             >
               <AnimatePresence mode="wait">
                 {mobileOpen ? (
@@ -236,26 +241,26 @@ export default function Navigation() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
-              className="fixed top-0 right-0 bottom-0 w-[min(320px,100vw)] bg-[oklch(0.08_0.025_255)] border-l border-white/10 z-50 lg:hidden flex flex-col overflow-y-auto"
+              className="fixed top-0 right-0 bottom-0 w-[min(280px,calc(100vw-3rem))] bg-[oklch(0.08_0.025_255)] border-l border-white/10 z-50 lg:hidden flex flex-col overflow-y-auto"
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/8">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-[#0066ff] flex items-center justify-center">
-                    <Shield className="w-4 h-4 text-white" />
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b border-white/8 gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 sm:w-7 h-6 sm:h-7 bg-[#0066ff] flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white" />
                   </div>
-                  <span className="text-white font-bold text-sm" style={{ fontFamily: 'Sora, sans-serif' }}>SISG</span>
+                  <span className="text-white font-bold text-xs sm:text-sm truncate" style={{ fontFamily: 'Sora, sans-serif' }}>SISG</span>
                 </div>
-                <button onClick={() => setMobileOpen(false)} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white border border-white/10">
-                  <X className="w-4 h-4" />
+                <button onClick={() => setMobileOpen(false)} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-gray-400 hover:text-white border border-white/10 flex-shrink-0">
+                  <X className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                 </button>
               </div>
 
               {/* Nav Links */}
-              <nav className="flex-1 p-4 space-y-1">
+              <nav className="flex-1 p-3 sm:p-4 space-y-1 overflow-y-auto">
                 {/* Services section */}
                 <div className="mb-2">
-                  <div className="text-[10px] text-gray-600 font-mono tracking-widest uppercase px-2 mb-2">Services</div>
+                  <div className="text-[8px] sm:text-[10px] text-gray-600 font-mono tracking-widest uppercase px-2 mb-2">Services</div>
                   {serviceItems.map((item, i) => (
                     <motion.div
                       key={item.href}
@@ -264,9 +269,9 @@ export default function Navigation() {
                       transition={{ delay: i * 0.05 }}
                     >
                       <Link href={item.href}>
-                        <div className="flex items-center gap-3 p-3 hover:bg-white/5 border-l-2 border-transparent hover:border-[#0066ff] transition-all">
-                          <item.icon className="w-4 h-4 text-[#0066ff]" />
-                          <span className="text-gray-300 text-sm">{item.label}</span>
+                        <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 hover:bg-white/5 border-l-2 border-transparent hover:border-[#0066ff] transition-all min-w-0">
+                          <item.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#0066ff] flex-shrink-0" />
+                          <span className="text-gray-300 text-xs sm:text-sm truncate">{item.label}</span>
                         </div>
                       </Link>
                     </motion.div>
@@ -277,7 +282,7 @@ export default function Navigation() {
 
                 {/* Other links */}
                 <div>
-                  <div className="text-[10px] text-gray-600 font-mono tracking-widest uppercase px-2 mb-2">Company</div>
+                  <div className="text-[8px] sm:text-[10px] text-gray-600 font-mono tracking-widest uppercase px-2 mb-2">Company</div>
                   {navLinks.filter((l) => !l.hasDropdown).map((link, i) => (
                     <motion.div
                       key={link.href}
@@ -286,13 +291,13 @@ export default function Navigation() {
                       transition={{ delay: 0.2 + i * 0.05 }}
                     >
                       <Link href={link.href}>
-                        <div className={`flex items-center justify-between p-3 border-l-2 transition-all ${
+                        <div className={`flex items-center justify-between p-2 sm:p-3 border-l-2 transition-all gap-2 min-w-0 ${
                           isActive(link.href)
                             ? "border-[#0066ff] bg-[#0066ff]/8 text-[#00d4ff]"
                             : "border-transparent text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/3"
                         }`}>
-                          <span className="text-sm font-medium" style={{ fontFamily: 'Sora, sans-serif' }}>{link.label}</span>
-                          <ArrowRight className="w-3.5 h-3.5 opacity-40" />
+                          <span className="text-xs sm:text-sm font-medium truncate" style={{ fontFamily: 'Sora, sans-serif' }}>{link.label}</span>
+                          <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5 opacity-40 flex-shrink-0" />
                         </div>
                       </Link>
                     </motion.div>
@@ -301,7 +306,7 @@ export default function Navigation() {
               </nav>
 
               {/* Mobile CTAs */}
-              <div className="p-4 border-t border-white/8 space-y-2">
+              <div className="p-3 sm:p-4 border-t border-white/8 space-y-2">
                 <Link href="/contact">
                   <button className="btn-tech w-full justify-center text-xs py-3">
                     Get Started <ArrowRight className="w-3.5 h-3.5" />
@@ -315,10 +320,10 @@ export default function Navigation() {
               </div>
 
               {/* Bottom status */}
-              <div className="p-4 border-t border-white/8">
-                <div className="badge-active px-3 py-1.5 text-xs flex items-center gap-2 w-fit">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 animate-pulse" />
-                  Systems Operational
+              <div className="p-3 sm:p-4 border-t border-white/8">
+                <div className="badge-active px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-2 w-fit whitespace-nowrap">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 animate-pulse flex-shrink-0" />
+                  <span className="truncate">Systems Operational</span>
                 </div>
               </div>
             </motion.div>

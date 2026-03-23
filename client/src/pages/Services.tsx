@@ -313,7 +313,7 @@ export default function Services() {
               How We <span className="gradient-text">Operate</span>
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 lg:gap-6">
             {processSteps.map((step, i) => (
               <motion.div
                 key={step.step}
@@ -323,13 +323,13 @@ export default function Services() {
                 transition={{ delay: i * 0.1, duration: 0.5 }}
                 className="relative"
               >
-                <div className="tech-card p-5 h-full">
-                  <div className="text-[10px] font-mono text-[#0066ff] tracking-widest mb-3">{step.step}</div>
-                  <div className="w-9 h-9 bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center mb-3">
-                    <step.icon className="w-4 h-4 text-[#0066ff]" />
+                <div className="tech-card p-3 sm:p-5 h-full">
+                  <div className="text-[9px] sm:text-[10px] font-mono text-[#0066ff] tracking-widest mb-2 sm:mb-3">{step.step}</div>
+                  <div className="w-8 sm:w-9 h-8 sm:h-9 bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center mb-2 sm:mb-3">
+                    <step.icon className="w-3 sm:w-4 h-3 sm:h-4 text-[#0066ff]" />
                   </div>
-                  <h3 className="text-white font-bold text-sm mb-2" style={{ fontFamily: 'Sora, sans-serif' }}>{step.title}</h3>
-                  <p className="text-gray-500 text-xs leading-relaxed">{step.desc}</p>
+                  <h3 className="text-white font-bold text-xs sm:text-sm mb-1.5 sm:mb-2 leading-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{step.title}</h3>
+                  <p className="text-gray-500 text-[10px] sm:text-xs leading-relaxed">{step.desc}</p>
                 </div>
                 {i < processSteps.length - 1 && (
                   <div className="hidden lg:block absolute top-1/2 -right-3 w-6 h-[1px] bg-gradient-to-r from-[#0066ff]/50 to-transparent" />

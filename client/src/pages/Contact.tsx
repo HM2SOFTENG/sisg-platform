@@ -62,23 +62,23 @@ export default function Contact() {
       {/* Main Grid */}
       <section className="pb-16 sm:pb-24">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
+          <div className="grid lg:grid-cols-3 gap-5 sm:gap-8 lg:gap-12">
 
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <div className="tech-card p-6 sm:p-8">
-                <div className="h-[2px] mb-6 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 bg-gradient-to-r from-[#0066ff] to-transparent" />
-                <h2 className="text-xl font-bold text-white mb-5" style={{ fontFamily: "Sora, sans-serif" }}>Send a Message</h2>
+              <div className="tech-card p-4 sm:p-6 lg:p-8">
+                <div className="h-[2px] mb-4 sm:mb-6 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8 bg-gradient-to-r from-[#0066ff] to-transparent" />
+                <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5" style={{ fontFamily: "Sora, sans-serif" }}>Send a Message</h2>
 
                 {/* Type selector */}
-                <div className="mb-6">
-                  <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-2">Inquiry Type</div>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-4 sm:mb-6">
+                  <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider mb-2">Inquiry Type</div>
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {contactTypes.map((t) => (
                       <button
                         key={t.id}
                         onClick={() => setSelectedType(t.id)}
-                        className="text-xs font-mono px-3 py-1.5 border transition-all"
+                        className="text-[11px] sm:text-xs font-mono px-2.5 sm:px-3 py-1.5 border transition-all"
                         style={
                           selectedType === t.id
                             ? { borderColor: t.color, background: t.color + "15", color: t.color }
@@ -91,54 +91,54 @@ export default function Contact() {
                   </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1.5">Full Name *</label>
+                      <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Full Name *</label>
                       <input
                         required
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
                         placeholder="John Smith"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1.5">Email Address *</label>
+                      <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Email Address *</label>
                       <input
                         required
                         type="email"
                         value={form.email}
                         onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
                         placeholder="john@agency.gov"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1.5">Organization</label>
+                    <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Organization</label>
                     <input
                       value={form.org}
                       onChange={(e) => setForm({ ...form, org: e.target.value })}
-                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
                       placeholder="Department of Defense"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1.5">Message *</label>
+                    <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Message *</label>
                     <textarea
                       required
-                      rows={5}
+                      rows={4}
                       value={form.message}
                       onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 resize-none"
+                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 resize-none"
                       placeholder="Describe your project or inquiry..."
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="btn-tech py-3 px-6 text-sm w-full sm:w-auto justify-center disabled:opacity-50"
+                    className="btn-tech py-2.5 sm:py-3 px-5 sm:px-6 text-xs sm:text-sm w-full sm:w-auto justify-center disabled:opacity-50"
                   >
                     {submitting ? (
                       <><Terminal className="w-4 h-4 animate-spin" /> Sending...</>
@@ -151,27 +151,27 @@ export default function Contact() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-5">
+            <div className="space-y-3 sm:space-y-5">
               {/* Contact Info */}
-              <div className="tech-card p-5">
-                <div className="h-[2px] mb-5 -mx-5 -mt-5 bg-gradient-to-r from-[#0066ff] to-transparent" />
-                <h3 className="text-white font-bold text-sm mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Direct Contact</h3>
-                <div className="space-y-4">
+              <div className="tech-card p-4 sm:p-5">
+                <div className="h-[2px] mb-4 sm:mb-5 -mx-4 sm:-mx-5 -mt-4 sm:-mt-5 bg-gradient-to-r from-[#0066ff] to-transparent" />
+                <h3 className="text-white font-bold text-xs sm:text-sm mb-3 sm:mb-4" style={{ fontFamily: "Sora, sans-serif" }}>Direct Contact</h3>
+                <div className="space-y-3 sm:space-y-4">
                   {[
                     { icon: Mail, label: "Email", value: "info@sentinelintegratedgroup.com", href: "mailto:info@sentinelintegratedgroup.com" },
                     { icon: Phone, label: "Phone", value: "(571) 555-0147", href: "tel:+15715550147" },
                     { icon: MapPin, label: "Location", value: "Washington DC Metro Area", href: null },
                   ].map((c) => (
-                    <div key={c.label} className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center flex-shrink-0">
-                        <c.icon className="w-4 h-4 text-[#0066ff]" />
+                    <div key={c.label} className="flex items-start gap-2 sm:gap-3">
+                      <div className="w-7 sm:w-8 h-7 sm:h-8 bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center flex-shrink-0">
+                        <c.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#0066ff]" />
                       </div>
-                      <div>
-                        <div className="text-[10px] font-mono text-gray-600 uppercase tracking-wider">{c.label}</div>
+                      <div className="min-w-0">
+                        <div className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider">{c.label}</div>
                         {c.href ? (
-                          <a href={c.href} className="text-gray-300 text-sm hover:text-[#00d4ff] transition-colors break-all">{c.value}</a>
+                          <a href={c.href} className="text-gray-300 text-xs sm:text-sm hover:text-[#00d4ff] transition-colors break-all">{c.value}</a>
                         ) : (
-                          <div className="text-gray-300 text-sm">{c.value}</div>
+                          <div className="text-gray-300 text-xs sm:text-sm">{c.value}</div>
                         )}
                       </div>
                     </div>
@@ -180,32 +180,32 @@ export default function Contact() {
               </div>
 
               {/* Response Time */}
-              <div className="tech-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-[#00e5a0]" />
-                  <span className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Response Times</span>
+              <div className="tech-card p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <Clock className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#00e5a0]" />
+                  <span className="text-white font-bold text-xs sm:text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Response Times</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {[
                     { type: "General Inquiry", time: "< 24 hours" },
                     { type: "Proposal Request", time: "< 48 hours" },
                     { type: "Security Incident", time: "< 1 hour" },
                   ].map((r) => (
-                    <div key={r.type} className="flex justify-between items-center">
-                      <span className="text-gray-500 text-xs font-mono">{r.type}</span>
-                      <span className="text-[#00e5a0] text-xs font-mono font-bold">{r.time}</span>
+                    <div key={r.type} className="flex justify-between items-center gap-2">
+                      <span className="text-gray-500 text-[10px] sm:text-xs font-mono">{r.type}</span>
+                      <span className="text-[#00e5a0] text-[10px] sm:text-xs font-mono font-bold whitespace-nowrap">{r.time}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Clearance */}
-              <div className="tech-card p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="w-4 h-4 text-[#0066ff]" />
-                  <span className="text-white font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Cleared Personnel</span>
+              <div className="tech-card p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                  <Shield className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#0066ff]" />
+                  <span className="text-white font-bold text-xs sm:text-sm" style={{ fontFamily: "Sora, sans-serif" }}>Cleared Personnel</span>
                 </div>
-                <p className="text-gray-500 text-xs leading-relaxed">All client-facing staff hold minimum Public Trust clearances. Secret and TS/SCI available for classified engagements.</p>
+                <p className="text-gray-500 text-[10px] sm:text-xs leading-relaxed">All client-facing staff hold minimum Public Trust clearances. Secret and TS/SCI available for classified engagements.</p>
               </div>
             </div>
           </div>

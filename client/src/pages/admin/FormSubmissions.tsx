@@ -140,27 +140,27 @@ export default function FormSubmissions() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Submissions</p>
-            <p className="text-2xl font-bold text-white mt-3">{stats.total}</p>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Total Submissions</p>
+            <p className="text-lg sm:text-2xl font-bold text-white mt-2 sm:mt-3">{stats.total}</p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">New</p>
-            <p className="text-2xl font-bold" style={{ color: "#0066ff" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">New</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#0066ff" }}>
               {stats.new}
             </p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Reviewed</p>
-            <p className="text-2xl font-bold" style={{ color: "#ffb800" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Reviewed</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#ffb800" }}>
               {stats.reviewed}
             </p>
           </div>
-          <div className="tech-card p-5">
-            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Responded</p>
-            <p className="text-2xl font-bold" style={{ color: "#00e5a0" }}>
+          <div className="tech-card p-3 sm:p-5">
+            <p className="text-[8px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-widest">Responded</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "#00e5a0" }}>
               {stats.responded}
             </p>
           </div>
@@ -171,16 +171,16 @@ export default function FormSubmissions() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="tech-card p-5 space-y-4"
+          className="tech-card p-3 sm:p-5 space-y-3 sm:space-y-4"
         >
-          <div className="flex items-center gap-3 bg-white/5 rounded px-4 py-3">
-            <Search size={18} className="text-gray-500" />
+          <div className="flex items-center gap-3 bg-white/5 rounded px-3 sm:px-4 py-2 sm:py-3">
+            <Search size={16} className="text-gray-500 flex-shrink-0" />
             <input
               type="text"
               placeholder="Search submissions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none"
+              className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm"
             />
           </div>
 
@@ -216,8 +216,8 @@ export default function FormSubmissions() {
               <p className="text-gray-400 text-center py-8">No submissions found</p>
             </>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-3 sm:-mx-0">
+              <table className="w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-3 px-4 text-[10px] font-mono text-gray-600 uppercase tracking-widest">

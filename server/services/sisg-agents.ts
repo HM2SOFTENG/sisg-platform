@@ -494,11 +494,10 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const highValue = scored.filter((s: any) => s._score >= 30);
     const medValue = scored.filter((s: any) => s._score >= 15 && s._score < 30);
 
-    // Persist opportunities to storage — merge with existing data to avoid duplicates
-    // Uses upsert: new opportunities are added, existing ones are updated with fresh scores/data
-    // Expired opportunities (past deadline + 7-day grace period) are pruned automatically
+    // Persist opportunities to storage for proposals agent — only if we got new data
+    // If API failed but we have previous data, preserve it instead of overwriting with empty array
     if (scored.length > 0) {
-      const newOpps = scored.slice(0, 50).map((opp: any) => ({
+      const storedOpps = scored.slice(0, 50).map((opp: any) => ({
         id: opp.noticeId,
         noticeId: opp.noticeId,
         title: opp.title || "Untitled",
@@ -535,36 +534,7 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
         resourceLinks: opp.resourceLinks || [],
         fetchedAt: now.toISOString(),
       }));
-
-      // Merge strategy: read existing opps, upsert new ones by noticeId, prune expired
-      const existingOpps = storage.read("sam_opportunities") as any[];
-      const mergedMap = new Map<string, any>();
-
-      // Load existing opportunities into map
-      for (const opp of existingOpps) {
-        if (opp.id || opp.noticeId) {
-          mergedMap.set(opp.id || opp.noticeId, opp);
-        }
-      }
-
-      // Upsert new/updated opportunities (overwrites stale data for same noticeId)
-      for (const opp of newOpps) {
-        mergedMap.set(opp.id, opp);
-      }
-
-      // Prune expired opportunities (deadline passed + 7-day grace period)
-      const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const mergedOpps = Array.from(mergedMap.values()).filter((opp: any) => {
-        if (!opp.responseDeadline) return true; // keep if no deadline
-        const deadline = new Date(opp.responseDeadline);
-        return deadline.getTime() > cutoff.getTime(); // keep if not expired beyond grace
-      });
-
-      // Sort by score and cap total stored at 200 to control DB size
-      mergedOpps.sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
-      const finalOpps = mergedOpps.slice(0, 200);
-
-      storage.write("sam_opportunities", finalOpps);
+      storage.write("sam_opportunities", storedOpps);
     } else if (fetchErrors.length > 0) {
       // API calls failed — don't overwrite stored opportunities, just log the failure
       outputs.push({
@@ -1831,8 +1801,12 @@ export const sisgAgents = {
    * Get stored SAM.gov opportunities (persisted by contracts agent)
    */
   async getOpportunities(options?: { minScore?: number; setAside?: string; limit?: number }) {
-    // Use SQL-level filtering via queryOpportunities for better performance
-    return storage.queryOpportunities(options);
+    let opps = storage.read("sam_opportunities") as any[];
+    if (options?.minScore) opps = opps.filter((o: any) => o.score >= options.minScore!);
+    if (options?.setAside) opps = opps.filter((o: any) => o.setAside === options.setAside);
+    opps.sort((a: any, b: any) => b.score - a.score);
+    if (options?.limit) opps = opps.slice(0, options.limit);
+    return opps;
   },
 
   /**

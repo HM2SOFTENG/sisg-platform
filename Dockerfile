@@ -27,15 +27,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install pnpm in production container
-RUN npm install -g pnpm@10.15.1
+# Install build dependencies for native modules (better-sqlite3) and pnpm
+RUN apk add --no-cache python3 make g++ && npm install -g pnpm@10.15.1
 
 # Copy package files and patches
 COPY package.json pnpm-lock.yaml ./
 COPY patches ./patches
 
-# Install production dependencies only
-RUN pnpm install --no-frozen-lockfile --prod
+# Install production dependencies only (includes native compilation)
+RUN pnpm install --no-frozen-lockfile --prod \
+    && apk del python3 make g++
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist

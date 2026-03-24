@@ -398,15 +398,10 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
     const fetchErrors: string[] = [];
     const seenNoticeIds = new Set<string>();
 
-    // Helper: delay between API calls to avoid rate limiting (SAM.gov free tier)
-    const rateLimitDelay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
     for (let i = 0; i < naicsCodes.length; i++) {
       const ncode = naicsCodes[i];
-      // Wait 1.5s between requests to stay within SAM.gov rate limits
-      if (i > 0) await rateLimitDelay(1500);
-      const url = `${samBaseUrl}?api_key=${apiKey}&limit=25&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&ncode=${ncode}`;
-      const response = await fetchWithTimeout(url, {}, 20000);
+      const url = `${samBaseUrl}?api_key=${apiKey}&limit=1000&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&ncode=${ncode}`;
+      const response = await fetchWithTimeout(url, {}, 30000);
 
       if (response?.ok) {
         const data = await response.json() as any;
@@ -418,13 +413,6 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
             allOpportunities.push(opp);
           }
         }
-      } else if (response?.status === 429) {
-        // Rate limited — stop making more requests, use what we have
-        let errBody = "";
-        try { errBody = (await response?.text() || "").substring(0, 100); } catch {}
-        fetchErrors.push(`NAICS ${ncode}: HTTP 429 (rate limited) ${errBody}`);
-        console.warn(`SAM.gov rate limited on NAICS ${ncode} — stopping further NAICS queries`);
-        break;
       } else {
         const status = response?.status || "timeout";
         let errBody = "";
@@ -433,13 +421,11 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
       }
     }
 
-    // Also do a set-aside-specific search for SDVOSB opportunities
-    for (let i = 0; i < Math.min(setAsides.length, 2); i++) {
+    // Also do set-aside-specific searches for all configured set-asides
+    for (let i = 0; i < setAsides.length; i++) {
       const setAside = setAsides[i];
-      // Wait between requests to avoid rate limiting
-      await rateLimitDelay(1500);
-      const url = `${samBaseUrl}?api_key=${apiKey}&limit=15&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&typeOfSetAside=${setAside}`;
-      const response = await fetchWithTimeout(url, {}, 20000);
+      const url = `${samBaseUrl}?api_key=${apiKey}&limit=1000&offset=0&postedFrom=${fromStr}&postedTo=${toStr}&typeOfSetAside=${setAside}`;
+      const response = await fetchWithTimeout(url, {}, 30000);
       if (response?.ok) {
         const data = await response.json() as any;
         const opps = data.opportunitiesData || [];
@@ -449,9 +435,11 @@ async function executeContracts(agent: SisgAgent): Promise<AgentOutput[]> {
             allOpportunities.push(opp);
           }
         }
-      } else if (response?.status === 429) {
-        console.warn(`SAM.gov rate limited on set-aside ${setAside} — stopping`);
-        break;
+      } else {
+        const status = response?.status || "timeout";
+        let errBody = "";
+        try { errBody = (await response?.text() || "").substring(0, 100); } catch {}
+        fetchErrors.push(`Set-aside ${setAside}: HTTP ${status} ${errBody}`);
       }
     }
 

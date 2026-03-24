@@ -491,6 +491,102 @@ router.post("/api/admin/agents/proposals/export", adminAuth, async (req: Request
   }
 });
 
+/**
+ * POST /api/admin/agents/modal/ai-assist
+ * AI content generation for modals (task, milestone, compliance, nextstep)
+ * Accepts: { type, taskName?, milestoneName?, itemName?, stepName?, opportunityTitle?, naicsCode?, setAside?, ... }
+ */
+router.post("/api/admin/agents/modal/ai-assist", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { type, ...context } = req.body;
+    if (!type) {
+      return res.status(400).json({ success: false, error: "Modal type is required (task|milestone|compliance|nextstep)" });
+    }
+
+    let generatedContent: any = {};
+
+    if (type === "task") {
+      generatedContent = generateTaskContent(context);
+    } else if (type === "milestone") {
+      generatedContent = generateMilestoneContent(context);
+    } else if (type === "compliance") {
+      generatedContent = generateComplianceContent(context);
+    } else if (type === "nextstep") {
+      generatedContent = generateNextStepContent(context);
+    } else {
+      return res.status(400).json({ success: false, error: "Invalid modal type" });
+    }
+
+    res.json({ success: true, data: generatedContent });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to generate modal content" });
+  }
+});
+
+/**
+ * PUT /api/admin/agents/proposals/modal-state
+ * Persist modal data to a proposal
+ * Accepts: { proposalId, modalType, itemKey, data }
+ */
+router.put("/api/admin/agents/proposals/modal-state", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { proposalId, modalType, itemKey, data } = req.body;
+    if (!proposalId || !modalType || !itemKey) {
+      return res.status(400).json({ success: false, error: "proposalId, modalType, and itemKey are required" });
+    }
+
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    const idx = proposals.findIndex((p: any) => p.id === proposalId);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Proposal not found" });
+    }
+
+    const proposal = proposals[idx];
+    if (!proposal.modalStates) {
+      proposal.modalStates = {};
+    }
+
+    proposal.modalStates[itemKey] = {
+      type: modalType,
+      data,
+      updatedAt: new Date().toISOString(),
+    };
+
+    proposals[idx] = { ...proposal };
+    storage.write("generated_proposals", proposals);
+
+    res.json({ success: true, data: proposals[idx] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to save modal state" });
+  }
+});
+
+/**
+ * GET /api/admin/agents/proposals/:id/modal-state/:itemKey
+ * Retrieve saved modal data for a specific item in a proposal
+ */
+router.get("/api/admin/agents/proposals/:id/modal-state/:itemKey", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { id, itemKey } = req.params;
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    const proposal = proposals.find((p: any) => p.id === id);
+    if (!proposal) {
+      return res.status(404).json({ success: false, error: "Proposal not found" });
+    }
+
+    const modalState = proposal.modalStates?.[itemKey];
+    if (!modalState) {
+      return res.status(404).json({ success: false, error: "Modal state not found for this item" });
+    }
+
+    res.json({ success: true, data: modalState });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to retrieve modal state" });
+  }
+});
+
 // ---- PARAMETERIZED ROUTES (must come AFTER non-parameterized routes) ----
 
 /**
@@ -676,6 +772,508 @@ function generateNextSteps(opp: any, daysRemaining: number | null): string[] {
   steps.push("Conduct internal Red Team review before submission");
   if (opp.pointOfContact) steps.push(`Contact contracting officer for clarification questions`);
   return steps;
+}
+
+// --- Modal Content Generation Helpers ---
+
+function generateTaskContent(context: any): any {
+  const taskName = context.taskName || "Task";
+  const phaseName = context.phaseName || "Project Phase";
+  const naicsCode = context.naicsCode || "";
+
+  // Determine task complexity and assignee based on task name
+  const isCompliance = taskName.toLowerCase().includes("compliance") || taskName.toLowerCase().includes("requirement");
+  const isTechnical = taskName.toLowerCase().includes("technical") || taskName.toLowerCase().includes("architecture") || taskName.toLowerCase().includes("system");
+  const isAdmin = taskName.toLowerCase().includes("contract") || taskName.toLowerCase().includes("admin") || taskName.toLowerCase().includes("proposal");
+
+  let assignee = "Project Manager";
+  if (isTechnical) assignee = "Technical Lead";
+  if (isCompliance) assignee = "Compliance Specialist";
+  if (isAdmin) assignee = "Contracts Specialist";
+
+  let hours = 8;
+  if (isCompliance) hours = 12;
+  if (taskName.toLowerCase().includes("review")) hours = 6;
+  if (taskName.toLowerCase().includes("design") || taskName.toLowerCase().includes("architecture")) hours = 20;
+
+  const subtasks = generateTaskSubtasks(taskName, naicsCode);
+
+  return {
+    subtasks,
+    notes: generateTaskNotes(taskName, naicsCode),
+    suggestedAssignee: assignee,
+    estimatedHours: hours,
+  };
+}
+
+function generateMilestoneContent(context: any): any {
+  const milestoneName = context.milestoneName || "Milestone";
+  const naicsCode = context.naicsCode || "";
+  const opportunityTitle = context.opportunityTitle || "";
+
+  return {
+    dependencies: generateMilestoneDependencies(milestoneName, opportunityTitle),
+    deliverables: generateMilestoneDeliverables(milestoneName, naicsCode),
+    completionCriteria: generateCompletionCriteria(milestoneName),
+    notes: generateMilestoneNotes(milestoneName, opportunityTitle),
+  };
+}
+
+function generateComplianceContent(context: any): any {
+  const itemName = context.itemName || "Compliance Item";
+  const required = context.required !== false;
+  const naicsCode = context.naicsCode || "";
+  const setAside = context.setAside || "";
+
+  return {
+    verificationSteps: generateVerificationSteps(itemName, naicsCode, setAside),
+    requiredDocuments: generateRequiredDocuments(itemName, setAside),
+    actionItems: generateActionItems(itemName),
+    guidanceNotes: generateGuidanceNotes(itemName, required),
+  };
+}
+
+function generateNextStepContent(context: any): any {
+  const stepName = context.stepName || "Next Step";
+  const opportunityTitle = context.opportunityTitle || "";
+
+  return {
+    subtasks: generateNextStepSubtasks(stepName, opportunityTitle),
+    notes: generateNextStepNotes(stepName),
+  };
+}
+
+function generateTaskSubtasks(taskName: string, naicsCode: string): string[] {
+  const lowerTask = taskName.toLowerCase();
+
+  if (lowerTask.includes("review") && lowerTask.includes("rfp")) {
+    return [
+      "Download and review full RFP document",
+      "Identify mandatory requirements and specifications",
+      "Map requirements to our existing capabilities",
+      "Flag potential compliance gaps or challenges",
+      "Document questions for contracting officer",
+    ];
+  }
+
+  if (lowerTask.includes("requirement") && (lowerTask.includes("analyze") || lowerTask.includes("analysis"))) {
+    return [
+      "Conduct comprehensive requirements review",
+      "Identify critical success factors",
+      "Assess organizational impact",
+      "Evaluate resource needs",
+      "Create requirements traceability matrix",
+    ];
+  }
+
+  if (lowerTask.includes("technical") && lowerTask.includes("approach")) {
+    return [
+      "Research relevant industry standards and methodologies",
+      "Develop proposed technical architecture",
+      "Create solution design diagrams",
+      "Document technology stack rationale",
+      "Define implementation timeline",
+    ];
+  }
+
+  if (lowerTask.includes("staffing") || lowerTask.includes("personnel")) {
+    return [
+      "Identify required skill sets and roles",
+      "Map internal personnel to positions",
+      "Identify staffing gaps",
+      "Develop recruitment plan if needed",
+      "Prepare resumes and certifications",
+    ];
+  }
+
+  if (lowerTask.includes("cost") || lowerTask.includes("pricing")) {
+    return [
+      "Establish cost estimation methodology",
+      "Develop labor rate assumptions",
+      "Estimate material and overhead costs",
+      "Create cost breakdown structure",
+      "Validate against budget constraints",
+    ];
+  }
+
+  // Default subtasks
+  return [
+    `Conduct initial assessment of ${taskName}`,
+    "Identify resource requirements and constraints",
+    `Develop execution strategy for ${taskName}`,
+    "Document findings and recommendations",
+    "Review with team stakeholders",
+  ];
+}
+
+function generateTaskNotes(taskName: string, naicsCode: string): string {
+  const isITNAICS = naicsCode.startsWith("5415") || naicsCode.startsWith("5112");
+  const lowerTask = taskName.toLowerCase();
+
+  if (lowerTask.includes("compliance")) {
+    return "Ensure all compliance requirements are thoroughly documented and mapped to regulatory standards. Schedule review sessions with legal and compliance teams to identify any gaps or risks.";
+  }
+
+  if (lowerTask.includes("technical")) {
+    const techFocus = isITNAICS ? "Leverage industry-leading IT methodologies and security best practices" : "Apply proven technical approach tailored to agency requirements";
+    return `${techFocus}. Document all assumptions and constraints for internal review and client alignment.`;
+  }
+
+  if (lowerTask.includes("staffing")) {
+    return "Coordinate with HR to identify and secure key personnel. Ensure all proposed staff meet clearance and certification requirements specified in the solicitation.";
+  }
+
+  if (lowerTask.includes("cost") || lowerTask.includes("pricing")) {
+    return "Apply competitive market rates while ensuring profitability. Document all cost assumptions and get finance approval before finalizing proposal pricing.";
+  }
+
+  return `Complete this task collaboratively with stakeholders. Document all decisions and maintain clear communication throughout the execution phase.`;
+}
+
+function generateMilestoneDependencies(milestoneName: string, opportunityTitle: string): string[] {
+  const lowerMilestone = milestoneName.toLowerCase();
+
+  if (lowerMilestone.includes("draft") && lowerMilestone.includes("technical")) {
+    return [
+      "Requirements analysis complete",
+      "Technical team assembled and briefed",
+      "Architecture decision records approved",
+    ];
+  }
+
+  if (lowerMilestone.includes("draft") && (lowerMilestone.includes("cost") || lowerMilestone.includes("pricing"))) {
+    return [
+      "Scope of work finalized",
+      "Labor categories and rates defined",
+      "Resource staffing plan confirmed",
+    ];
+  }
+
+  if (lowerMilestone.includes("review") || lowerMilestone.includes("internal")) {
+    return [
+      "All technical volumes drafted",
+      "Cost estimates completed",
+      "Compliance checklist reviewed",
+    ];
+  }
+
+  if (lowerMilestone.includes("submission") || lowerMilestone.includes("final")) {
+    return [
+      "Internal review and Red Team complete",
+      "All sections formatted and proofed",
+      "Executive approval obtained",
+    ];
+  }
+
+  return [
+    "Prior phase activities complete",
+    "Team resources allocated",
+    "Requirements documented",
+  ];
+}
+
+function generateMilestoneDeliverables(milestoneName: string, naicsCode: string): string[] {
+  const lowerMilestone = milestoneName.toLowerCase();
+
+  if (lowerMilestone.includes("technical")) {
+    return [
+      "Technical approach document",
+      "System architecture diagrams",
+      "Solution implementation roadmap",
+      "Risk mitigation plan",
+    ];
+  }
+
+  if (lowerMilestone.includes("cost") || lowerMilestone.includes("pricing")) {
+    return [
+      "Detailed cost breakdown",
+      "Pricing schedule",
+      "Cost estimation methodology",
+      "Financial assumptions document",
+    ];
+  }
+
+  if (lowerMilestone.includes("review")) {
+    return [
+      "Red Team review report",
+      "Compliance verification matrix",
+      "Quality assurance checklist",
+      "Recommended corrections and edits",
+    ];
+  }
+
+  if (lowerMilestone.includes("submission")) {
+    return [
+      "Final proposal document package",
+      "Electronic submission confirmation",
+      "Delivery receipt documentation",
+    ];
+  }
+
+  return [
+    "Phase completion report",
+    "Updated status documentation",
+    "Risk and issue summary",
+  ];
+}
+
+function generateCompletionCriteria(milestoneName: string): string[] {
+  const lowerMilestone = milestoneName.toLowerCase();
+
+  const criteria = [
+    "All assigned tasks completed",
+    "Quality review passed with minimal findings",
+    "Stakeholder sign-off obtained",
+  ];
+
+  if (lowerMilestone.includes("technical")) {
+    criteria.push("Technical architecture approved by leadership");
+    criteria.push("No unresolved compliance concerns");
+  }
+
+  if (lowerMilestone.includes("cost") || lowerMilestone.includes("pricing")) {
+    criteria.push("Finance approval on pricing strategy");
+    criteria.push("Competitive analysis validation complete");
+  }
+
+  if (lowerMilestone.includes("review")) {
+    criteria.push("All action items from review incorporated");
+    criteria.push("Final formatting complete");
+  }
+
+  return criteria;
+}
+
+function generateMilestoneNotes(milestoneName: string, opportunityTitle: string): string {
+  const lowerMilestone = milestoneName.toLowerCase();
+
+  if (lowerMilestone.includes("submission")) {
+    return "Ensure timely submission well before deadline to account for any technical upload issues. Maintain comprehensive documentation of submission confirmation and receipt.";
+  }
+
+  if (lowerMilestone.includes("review")) {
+    return "Conduct thorough internal review with cross-functional team. Document all findings and prioritize resolution of critical items before final submission.";
+  }
+
+  return `This milestone is critical to proposal success. Monitor progress closely and escalate any blockers to the proposal manager immediately.`;
+}
+
+function generateVerificationSteps(itemName: string, naicsCode: string, setAside: string): string[] {
+  const lowerItem = itemName.toLowerCase();
+
+  if (lowerItem.includes("sam") || lowerItem.includes("registration")) {
+    return [
+      "Log into SAM.gov and confirm active registration",
+      "Verify all company information is current and accurate",
+      "Check UEI matches all proposal documents",
+      "Confirm no active exclusions or suspensions",
+      "Export and archive current SAM.gov confirmation",
+    ];
+  }
+
+  if (lowerItem.includes("naics")) {
+    return [
+      "Verify NAICS code matches solicitation requirements",
+      "Confirm revenue alignment with NAICS definition",
+      "Check SBA size standards compliance",
+      "Document business classification rationale",
+      "Obtain legal review of NAICS certification",
+    ];
+  }
+
+  if (lowerItem.includes("sdvosb") || lowerItem.includes("veteran")) {
+    return [
+      "Confirm SDVOSB CVE status is active",
+      "Verify service-disabled veteran ownership percentage",
+      "Check for any debarment or suspension status",
+      "Ensure compliance with VOSB program requirements",
+      "Document veteran status verification",
+    ];
+  }
+
+  if (lowerItem.includes("past performance") || lowerItem.includes("reference")) {
+    return [
+      "Identify 3+ relevant contracts matching opportunity scope",
+      "Contact references and confirm availability for evaluation",
+      "Gather contract documentation and performance metrics",
+      "Prepare past performance questionnaire responses",
+      "Document contract relevance and lessons learned",
+    ];
+  }
+
+  if (lowerItem.includes("conflict") || lowerItem.includes("ocoi")) {
+    return [
+      "Conduct organizational conflict of interest analysis",
+      "Review all current contracts for potential conflicts",
+      "Document findings and mitigation strategies",
+      "Obtain legal review and approval",
+      "Prepare conflict waiver request if necessary",
+    ];
+  }
+
+  return [
+    `Verify ${itemName} requirements from solicitation`,
+    "Gather supporting documentation",
+    "Conduct compliance assessment",
+    "Document verification results",
+    "Escalate any issues to compliance team",
+  ];
+}
+
+function generateRequiredDocuments(itemName: string, setAside: string): string[] {
+  const lowerItem = itemName.toLowerCase();
+
+  if (lowerItem.includes("sam") || lowerItem.includes("registration")) {
+    return [
+      "SAM.gov registration confirmation screenshot",
+      "UEI documentation",
+    ];
+  }
+
+  if (lowerItem.includes("sdvosb") || lowerItem.includes("veteran")) {
+    return [
+      "SDVOSB CVE certification letter",
+      "Service-disabled verification documentation",
+    ];
+  }
+
+  if (lowerItem.includes("past performance") || lowerItem.includes("reference")) {
+    return [
+      "Past performance reference letters",
+      "Sample contract deliverables or work products",
+      "Performance evaluation summaries",
+    ];
+  }
+
+  if (lowerItem.includes("personnel") || lowerItem.includes("key staff")) {
+    return [
+      "Current resumes for all proposed personnel",
+      "Clearance documentation",
+      "Professional certifications",
+    ];
+  }
+
+  return [
+    "Supporting documentation for the compliance item",
+    "Verification records or certificates",
+  ];
+}
+
+function generateActionItems(itemName: string): string[] {
+  const lowerItem = itemName.toLowerCase();
+
+  if (lowerItem.includes("sam") || lowerItem.includes("registration")) {
+    return [
+      "Assign owner for SAM.gov maintenance",
+      "Set up quarterly review schedule",
+    ];
+  }
+
+  if (lowerItem.includes("past performance")) {
+    return [
+      "Identify and contact past performance references",
+      "Prepare detailed questionnaire responses",
+    ];
+  }
+
+  if (lowerItem.includes("personnel") || lowerItem.includes("resume")) {
+    return [
+      "Collect updated resumes from all key staff",
+      "Verify certifications and clearances",
+    ];
+  }
+
+  return [
+    `Assign owner responsible for ${itemName}`,
+    "Schedule verification and sign-off",
+  ];
+}
+
+function generateGuidanceNotes(itemName: string, required: boolean): string {
+  const requiredText = required ? "This is a required compliance item." : "This is an optional compliance item.";
+
+  if (itemName.toLowerCase().includes("conflict")) {
+    return `${requiredText} Any organizational conflicts of interest must be thoroughly disclosed and mitigation strategies clearly documented.`;
+  }
+
+  if (itemName.toLowerCase().includes("past performance")) {
+    return `${requiredText} Ensure all references are relevant to the current opportunity scope and that referees are available for contact.`;
+  }
+
+  if (itemName.toLowerCase().includes("section 508")) {
+    return `${requiredText} Section 508 compliance is critical for government IT proposals. All deliverables must meet accessibility standards.`;
+  }
+
+  return `${requiredText} Complete this requirement early to avoid submission delays.`;
+}
+
+function generateNextStepSubtasks(stepName: string, opportunityTitle: string): string[] {
+  const lowerStep = stepName.toLowerCase();
+
+  if (lowerStep.includes("customize") || lowerStep.includes("tailor")) {
+    return [
+      "Review generated proposal outline",
+      "Customize sections with company-specific language",
+      "Incorporate past performance examples",
+      "Align technical approach to specific requirements",
+    ];
+  }
+
+  if (lowerStep.includes("team") || lowerStep.includes("personnel")) {
+    return [
+      "Assign proposal manager and key team leads",
+      "Distribute responsibilities and deadlines",
+      "Conduct team kickoff meeting",
+      "Establish communication and review protocols",
+    ];
+  }
+
+  if (lowerStep.includes("review") || lowerStep.includes("red team")) {
+    return [
+      "Conduct internal technical review",
+      "Execute Red Team challenge and response",
+      "Review for compliance and responsiveness",
+      "Address all findings before submission",
+    ];
+  }
+
+  if (lowerStep.includes("submit") || lowerStep.includes("submission")) {
+    return [
+      "Prepare final proposal documents",
+      "Format for electronic submission",
+      "Test upload process and file integrity",
+      "Submit well before deadline",
+    ];
+  }
+
+  return [
+    `Execute ${stepName}`,
+    "Document progress and decisions",
+    "Communicate status to stakeholders",
+    "Prepare for next phase",
+  ];
+}
+
+function generateNextStepNotes(stepName: string): string {
+  const lowerStep = stepName.toLowerCase();
+
+  if (lowerStep.includes("customize") || lowerStep.includes("tailor")) {
+    return "Work closely with subject matter experts to ensure all proposal content is accurate, compelling, and directly responsive to the solicitation requirements.";
+  }
+
+  if (lowerStep.includes("team")) {
+    return "Establish clear roles, responsibilities, and communication channels early to ensure efficient execution and coordination throughout the proposal development cycle.";
+  }
+
+  if (lowerStep.includes("review")) {
+    return "This critical phase identifies weaknesses and gaps. Allow sufficient time for thorough review and incorporation of feedback before final submission.";
+  }
+
+  if (lowerStep.includes("submit")) {
+    return "Plan submissions for at least 24 hours before deadline to account for unexpected technical issues or corrections needed.";
+  }
+
+  return `This step is important for proposal success. Ensure adequate resources and timeline are allocated.`;
 }
 
 export default router;

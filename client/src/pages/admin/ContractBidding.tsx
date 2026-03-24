@@ -5,6 +5,9 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, RefreshCw, Search, ExternalLink, ChevronDown, ChevronUp, Zap, Target, Clock, Shield, FileText, TrendingUp, Bell, CheckCircle2, AlertTriangle, ArrowRight, MapPin, Building2, User, Phone, Mail, Clipboard, BookOpen, Award, Briefcase, ListChecks } from "lucide-react";
 import { toast } from "sonner";
+import TaskModal, { TaskModalData } from "@/components/modals/TaskModal";
+import MilestoneModal, { MilestoneModalData } from "@/components/modals/MilestoneModal";
+import ComplianceModal, { ComplianceModalData } from "@/components/modals/ComplianceModal";
 
 // ============================================================
 // TYPES
@@ -320,6 +323,23 @@ export default function ContractBidding() {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // Modal states
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskModalTarget, setTaskModalTarget] = useState<{ taskName: string; taskKey: string; phaseName: string; phaseIndex: number; taskIndex: number } | null>(null);
+  const [taskModalData, setTaskModalData] = useState<Record<string, TaskModalData>>({});
+
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
+  const [milestoneModalTarget, setMilestoneModalTarget] = useState<{ name: string; key: string; date: string; index: number } | null>(null);
+  const [milestoneModalData, setMilestoneModalData] = useState<Record<string, MilestoneModalData>>({});
+
+  const [complianceModalOpen, setComplianceModalOpen] = useState(false);
+  const [complianceModalTarget, setComplianceModalTarget] = useState<{ name: string; key: string; index: number; required: boolean } | null>(null);
+  const [complianceModalData, setComplianceModalData] = useState<Record<string, ComplianceModalData>>({});
+
+  const [nextStepModalOpen, setNextStepModalOpen] = useState(false);
+  const [nextStepModalTarget, setNextStepModalTarget] = useState<{ stepName: string; key: string; index: number } | null>(null);
+  const [nextStepModalData, setNextStepModalData] = useState<Record<string, TaskModalData>>({});
+
   const token = typeof window !== "undefined" ? localStorage.getItem("sisg_admin_token") : null;
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -388,6 +408,95 @@ export default function ContractBidding() {
         toast.success("Workflow progress saved");
       }
     } catch { toast.error("Failed to save progress"); }
+  };
+
+  // ============================================================
+  // MODAL HANDLERS
+  // ============================================================
+
+  const openTaskModal = (taskName: string, taskKey: string, phaseName: string, phaseIndex: number, taskIndex: number) => {
+    setTaskModalTarget({ taskName, taskKey, phaseName, phaseIndex, taskIndex });
+    setTaskModalOpen(true);
+  };
+
+  const handleTaskModalSave = async (data: TaskModalData) => {
+    setTaskModalData(prev => ({ ...prev, [data.taskKey]: data }));
+    if (data.completed) setWorkflowTasks(prev => ({ ...prev, [data.taskKey]: true }));
+    // Persist to backend
+    if (activeProposal) {
+      try {
+        await fetch("/api/admin/agents/proposals/modal-state", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ proposalId: activeProposal.id, modalType: "task", itemKey: data.taskKey, data }),
+        });
+      } catch { /* silent */ }
+    }
+    setTaskModalOpen(false);
+    toast.success("Task updated", { description: data.taskKey });
+  };
+
+  const openMilestoneModal = (name: string, key: string, date: string, index: number) => {
+    setMilestoneModalTarget({ name, key, date, index });
+    setMilestoneModalOpen(true);
+  };
+
+  const handleMilestoneModalSave = async (data: MilestoneModalData) => {
+    setMilestoneModalData(prev => ({ ...prev, [data.milestoneKey]: data }));
+    setMilestoneStatuses(prev => ({ ...prev, [data.milestoneKey]: data.status }));
+    if (activeProposal) {
+      try {
+        await fetch("/api/admin/agents/proposals/modal-state", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ proposalId: activeProposal.id, modalType: "milestone", itemKey: data.milestoneKey, data }),
+        });
+      } catch { /* silent */ }
+    }
+    setMilestoneModalOpen(false);
+    toast.success("Milestone updated", { description: data.name });
+  };
+
+  const openComplianceModal = (name: string, key: string, index: number, required: boolean) => {
+    setComplianceModalTarget({ name, key, index, required });
+    setComplianceModalOpen(true);
+  };
+
+  const handleComplianceModalSave = async (data: ComplianceModalData) => {
+    setComplianceModalData(prev => ({ ...prev, [data.itemKey]: data }));
+    setComplianceStatuses(prev => ({ ...prev, [data.itemKey]: data.status }));
+    if (activeProposal) {
+      try {
+        await fetch("/api/admin/agents/proposals/modal-state", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ proposalId: activeProposal.id, modalType: "compliance", itemKey: data.itemKey, data }),
+        });
+      } catch { /* silent */ }
+    }
+    setComplianceModalOpen(false);
+    toast.success("Compliance item updated", { description: name });
+  };
+
+  const openNextStepModal = (stepName: string, key: string, index: number) => {
+    setNextStepModalTarget({ stepName, key, index });
+    setNextStepModalOpen(true);
+  };
+
+  const handleNextStepModalSave = async (data: TaskModalData) => {
+    setNextStepModalData(prev => ({ ...prev, [data.taskKey]: data }));
+    if (data.completed) setWorkflowTasks(prev => ({ ...prev, [data.taskKey]: true }));
+    if (activeProposal) {
+      try {
+        await fetch("/api/admin/agents/proposals/modal-state", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ proposalId: activeProposal.id, modalType: "nextstep", itemKey: data.taskKey, data }),
+        });
+      } catch { /* silent */ }
+    }
+    setNextStepModalOpen(false);
+    toast.success("Next step updated", { description: data.taskKey });
   };
 
   // ============================================================
@@ -1523,11 +1632,12 @@ export default function ContractBidding() {
                                 const taskKey = `phase-${pi}-task-${ti}`;
                                 const done = workflowTasks[taskKey];
                                 return (
-                                  <motion.div key={ti} whileHover={{ x: 2 }} onClick={() => toggleTask(taskKey)} className="flex items-center gap-2 p-1.5 rounded cursor-pointer hover:bg-white/5 transition-colors">
+                                  <motion.div key={ti} whileHover={{ x: 2 }} onClick={(e) => { if (e.shiftKey) { toggleTask(taskKey); } else { openTaskModal(task, taskKey, phase.name, pi, ti); } }} className="flex items-center gap-2 p-1.5 rounded cursor-pointer hover:bg-white/5 transition-colors">
                                     <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] transition-colors ${done ? "bg-[#8b5cf6]/30 border-[#8b5cf6] text-[#8b5cf6]" : "border-white/20"}`}>
                                       {done && "✓"}
                                     </div>
                                     <span className={`text-xs font-mono ${done ? "text-gray-500 line-through" : "text-gray-300"}`}>{task}</span>
+                                    {taskModalData[taskKey] && <span className="text-[8px] text-[#8b5cf6] ml-auto">detailed</span>}
                                   </motion.div>
                                 );
                               })}
@@ -1550,7 +1660,7 @@ export default function ContractBidding() {
                         const statusColors = { pending: { bg: "bg-white/10", border: "border-white/20", text: "text-gray-400", label: "Pending" }, in_progress: { bg: "bg-[#0066ff]/20", border: "border-[#0066ff]/40", text: "text-[#0066ff]", label: "In Progress" }, complete: { bg: "bg-[#00e5a0]/20", border: "border-[#00e5a0]/40", text: "text-[#00e5a0]", label: "Complete" } };
                         const sc = statusColors[status];
                         return (
-                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => cycleMilestoneStatus(key)} className="flex items-center justify-between p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={(e) => { if (e.shiftKey) { cycleMilestoneStatus(key); } else { openMilestoneModal(milestone.name, key, milestone.date, i); } }} className="flex items-center justify-between p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
                             <div className="flex items-center gap-3">
                               <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] ${sc.bg} ${sc.border} ${sc.text}`}>
                                 {status === "complete" ? "✓" : status === "in_progress" ? "▶" : "○"}
@@ -1655,7 +1765,7 @@ export default function ContractBidding() {
                         };
                         const sc = statusConfig[status] || statusConfig.verify;
                         return (
-                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => cycleComplianceStatus(key)} className="flex items-center gap-3 p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={(e) => { if (e.shiftKey) { cycleComplianceStatus(key); } else { openComplianceModal(item.item, key, i, item.required); } }} className="flex items-center gap-3 p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
                             <div className={`w-5 h-5 rounded border text-[9px] flex items-center justify-center ${sc.bg} ${sc.border} ${sc.text}`}>
                               {sc.icon}
                             </div>
@@ -1680,7 +1790,7 @@ export default function ContractBidding() {
                         const key = `nextstep-${i}`;
                         const done = workflowTasks[key] || false;
                         return (
-                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => toggleTask(key)} className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-white/5 transition-colors">
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={(e) => { if (e.shiftKey) { toggleTask(key); } else { openNextStepModal(step, key, i); } }} className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-white/5 transition-colors">
                             <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] transition-colors shrink-0 ${done ? "bg-[#0066ff]/30 border-[#0066ff] text-[#0066ff]" : "border-white/20"}`}>
                               {done && "✓"}
                             </div>
@@ -1696,7 +1806,7 @@ export default function ContractBidding() {
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div>
                         <p className="text-white text-sm font-bold">Workflow Progress</p>
-                        <p className="text-gray-500 text-xs">Click tasks, milestones, and compliance items to track progress. Save to persist.</p>
+                        <p className="text-gray-500 text-xs">Click items to open detailed workflow. Shift+click to quick-toggle status. Save to persist.</p>
                       </div>
                       <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveWorkflowToProposal} className="px-4 py-2 bg-[#0066ff] text-white text-sm rounded hover:bg-[#0055dd] transition-colors font-bold whitespace-nowrap">
                         <Award size={12} className="inline mr-2" /> Save Progress
@@ -2200,6 +2310,63 @@ export default function ContractBidding() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Workflow Modals */}
+        {taskModalTarget && (
+          <TaskModal
+            isOpen={taskModalOpen}
+            onClose={() => setTaskModalOpen(false)}
+            onSave={handleTaskModalSave}
+            taskName={taskModalTarget.taskName}
+            taskKey={taskModalTarget.taskKey}
+            phaseName={taskModalTarget.phaseName}
+            phaseIndex={taskModalTarget.phaseIndex}
+            taskIndex={taskModalTarget.taskIndex}
+            opportunity={activeProposal?.opportunity}
+            initialData={taskModalData[taskModalTarget.taskKey] || null}
+          />
+        )}
+        {milestoneModalTarget && (
+          <MilestoneModal
+            isOpen={milestoneModalOpen}
+            onClose={() => setMilestoneModalOpen(false)}
+            onSave={handleMilestoneModalSave}
+            milestoneName={milestoneModalTarget.name}
+            milestoneKey={milestoneModalTarget.key}
+            milestoneDate={milestoneModalTarget.date}
+            milestoneIndex={milestoneModalTarget.index}
+            opportunity={activeProposal?.opportunity}
+            proposalDeadline={activeProposal?.opportunity?.responseDeadline || null}
+            initialData={milestoneModalData[milestoneModalTarget.key] || null}
+          />
+        )}
+        {complianceModalTarget && (
+          <ComplianceModal
+            isOpen={complianceModalOpen}
+            onClose={() => setComplianceModalOpen(false)}
+            onSave={handleComplianceModalSave}
+            itemName={complianceModalTarget.name}
+            itemKey={complianceModalTarget.key}
+            itemIndex={complianceModalTarget.index}
+            required={complianceModalTarget.required}
+            opportunity={activeProposal?.opportunity}
+            initialData={complianceModalData[complianceModalTarget.key] || null}
+          />
+        )}
+        {nextStepModalTarget && (
+          <TaskModal
+            isOpen={nextStepModalOpen}
+            onClose={() => setNextStepModalOpen(false)}
+            onSave={handleNextStepModalSave}
+            taskName={nextStepModalTarget.stepName}
+            taskKey={nextStepModalTarget.key}
+            phaseName="Next Steps"
+            phaseIndex={-1}
+            taskIndex={nextStepModalTarget.index}
+            opportunity={activeProposal?.opportunity}
+            initialData={nextStepModalData[nextStepModalTarget.key] || null}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

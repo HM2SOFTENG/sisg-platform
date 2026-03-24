@@ -313,8 +313,82 @@ export default function ContractBidding() {
   const [activeProposal, setActiveProposal] = useState<any | null>(null);
   const [showProposalForm, setShowProposalForm] = useState(false);
 
+  // Workflow state for active proposal
+  const [workflowTasks, setWorkflowTasks] = useState<Record<string, boolean>>({});
+  const [milestoneStatuses, setMilestoneStatuses] = useState<Record<string, "pending" | "in_progress" | "complete">>({});
+  const [complianceStatuses, setComplianceStatuses] = useState<Record<string, "verify" | "ready" | "action_needed" | "complete">>({});
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
   const token = typeof window !== "undefined" ? localStorage.getItem("sisg_admin_token") : null;
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  // ============================================================
+  // WORKFLOW FUNCTIONS
+  // ============================================================
+
+  const initializeWorkflow = useCallback((proposal: any) => {
+    if (!proposal) return;
+    // Initialize task completion states
+    const tasks: Record<string, boolean> = {};
+    proposal.executionPlan?.phases?.forEach((phase: any, pi: number) => {
+      phase.tasks?.forEach((_: string, ti: number) => {
+        tasks[`phase-${pi}-task-${ti}`] = false;
+      });
+    });
+    setWorkflowTasks(tasks);
+    // Initialize milestone statuses
+    const milestones: Record<string, "pending" | "in_progress" | "complete"> = {};
+    proposal.executionPlan?.keyMilestones?.forEach((m: any, i: number) => {
+      milestones[`milestone-${i}`] = m.status || "pending";
+    });
+    setMilestoneStatuses(milestones);
+    // Initialize compliance statuses
+    const compliance: Record<string, "verify" | "ready" | "action_needed" | "complete"> = {};
+    proposal.complianceChecklist?.forEach((item: any, i: number) => {
+      compliance[`compliance-${i}`] = item.status || "verify";
+    });
+    setComplianceStatuses(compliance);
+  }, []);
+
+  const toggleTask = (key: string) => {
+    setWorkflowTasks(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const cycleMilestoneStatus = (key: string) => {
+    setMilestoneStatuses(prev => {
+      const current = prev[key];
+      const next = current === "pending" ? "in_progress" : current === "in_progress" ? "complete" : "pending";
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const cycleComplianceStatus = (key: string) => {
+    setComplianceStatuses(prev => {
+      const current = prev[key];
+      const next = current === "verify" ? "ready" : current === "ready" ? "complete" : current === "complete" ? "action_needed" : "verify";
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const saveWorkflowToProposal = async () => {
+    if (!activeProposal) return;
+    try {
+      const updatedProposal = {
+        ...activeProposal,
+        workflowState: { tasks: workflowTasks, milestones: milestoneStatuses, compliance: complianceStatuses },
+      };
+      const response = await fetch("/api/admin/agents/proposals/update", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("sisg_admin_token") : ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: activeProposal.id, workflowState: updatedProposal.workflowState }),
+      });
+      if (response.ok) {
+        setActiveProposal(updatedProposal);
+        toast.success("Workflow progress saved");
+      }
+    } catch { toast.error("Failed to save progress"); }
+  };
 
   // ============================================================
   // DATA FETCHING
@@ -492,6 +566,7 @@ export default function ContractBidding() {
       if (response.ok) {
         const data = await response.json();
         setActiveProposal(data.data);
+        initializeWorkflow(data.data);
         setShowProposalForm(false);
         setProposals(prev => [data.data, ...prev]);
         toast.success("Proposal generated", { description: `${data.data.bidDecision.recommendation} — ${data.data.bidDecision.confidence}% confidence` });
@@ -503,6 +578,65 @@ export default function ContractBidding() {
       toast.error("Generation failed", { description: "Network error" });
     } finally {
       setProposalLoading(false);
+    }
+  };
+
+  const exportProposal = async (proposal: any) => {
+    if (!proposal) return;
+    try {
+      const response = await fetch("/api/admin/agents/proposals/export", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("sisg_admin_token") : ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: proposal.id }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const doc = data.data;
+        // Build plain text document
+        const lines: string[] = [];
+        lines.push("═".repeat(70));
+        lines.push(doc.title.toUpperCase());
+        lines.push(doc.subtitle);
+        lines.push(`Generated: ${new Date(doc.generatedAt).toLocaleDateString()}`);
+        lines.push("═".repeat(70));
+        lines.push("");
+        for (const section of doc.sections) {
+          lines.push("─".repeat(70));
+          lines.push(section.heading.toUpperCase());
+          lines.push("─".repeat(70));
+          for (const line of section.content) {
+            lines.push(line);
+          }
+          lines.push("");
+        }
+        lines.push("═".repeat(70));
+        lines.push("DOCUMENT METADATA");
+        lines.push("═".repeat(70));
+        lines.push(`Proposal ID: ${doc.metadata.proposalId}`);
+        lines.push(`Opportunity: ${doc.metadata.opportunityId}`);
+        lines.push(`Match Score: ${doc.metadata.score}`);
+        lines.push(`Status: ${doc.metadata.status}`);
+        lines.push("");
+        lines.push("Generated by SISG Contract Operations Center");
+        lines.push(`Export Date: ${new Date().toISOString()}`);
+
+        const content = lines.join("\n");
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const filename = `SISG_Proposal_${(proposal.opportunity?.solicitationNumber || proposal.opportunity?.title || "Draft").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 40)}_${new Date().toISOString().split("T")[0]}.txt`;
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("Proposal exported", { description: filename });
+      } else {
+        toast.error("Export failed", { description: "Could not generate document" });
+      }
+    } catch (error) {
+      toast.error("Export failed", { description: "Network error" });
     }
   };
 
@@ -1303,7 +1437,7 @@ export default function ContractBidding() {
                         <h2 className="text-base sm:text-lg font-bold text-white mb-1 break-words">{activeProposal.opportunity.title}</h2>
                         <p className="text-gray-400 text-xs sm:text-sm">{activeProposal.opportunity.organization} — Generated {new Date(activeProposal.generatedAt).toLocaleDateString()}</p>
                       </div>
-                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => { toast("Export functionality coming soon", { description: "PDF & Word export features" }); }} className="px-4 py-2 bg-[#0066ff]/20 border border-[#0066ff]/40 text-[#0066ff] text-xs rounded hover:bg-[#0066ff]/30 transition-colors whitespace-nowrap">
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => exportProposal(activeProposal)} className="px-4 py-2 bg-[#0066ff]/20 border border-[#0066ff]/40 text-[#0066ff] text-xs rounded hover:bg-[#0066ff]/30 transition-colors whitespace-nowrap">
                         <FileText size={12} className="inline mr-2" /> Export
                       </motion.button>
                     </div>
@@ -1349,45 +1483,87 @@ export default function ContractBidding() {
                     </div>
                   </motion.div>
 
-                  {/* Execution Plan */}
+                  {/* Execution Plan — Interactive Workflow */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="tech-card p-4 sm:p-6">
-                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <Clock size={14} className="text-[#8b5cf6]" /> Execution Plan
-                    </h3>
-                    <div className="space-y-4">
-                      {activeProposal.executionPlan.phases.map((phase: any, i: number) => (
-                        <div key={i} className="bg-white/[0.02] border border-white/5 p-3 rounded">
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="text-white font-bold text-sm">{phase.name}</p>
-                            <p className="text-gray-500 text-xs">{phase.duration}</p>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {phase.tasks.map((task: string, j: number) => (
-                              <span key={j} className="text-[8px] font-mono px-2 py-0.5 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/30 rounded">
-                                {task}
-                              </span>
-                            ))}
-                          </div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                        <Clock size={14} className="text-[#8b5cf6]" /> Execution Plan
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-gray-500">
+                          {Object.values(workflowTasks).filter(Boolean).length}/{Object.keys(workflowTasks).length} tasks
+                        </span>
+                        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#8b5cf6] rounded-full transition-all duration-300" style={{ width: `${Object.keys(workflowTasks).length > 0 ? (Object.values(workflowTasks).filter(Boolean).length / Object.keys(workflowTasks).length) * 100 : 0}%` }} />
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {activeProposal.executionPlan.phases.map((phase: any, pi: number) => {
+                        const phaseTasks = phase.tasks.map((_: string, ti: number) => `phase-${pi}-task-${ti}`);
+                        const phaseComplete = phaseTasks.every((k: string) => workflowTasks[k]);
+                        const phaseProgress = phaseTasks.length > 0 ? phaseTasks.filter((k: string) => workflowTasks[k]).length / phaseTasks.length : 0;
+                        return (
+                          <div key={pi} className={`bg-white/[0.02] border p-3 rounded transition-colors ${phaseComplete ? "border-[#00e5a0]/30" : "border-white/5"}`}>
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="flex items-center gap-2">
+                                {phaseComplete && <CheckCircle2 size={14} className="text-[#00e5a0]" />}
+                                <p className={`font-bold text-sm ${phaseComplete ? "text-[#00e5a0]" : "text-white"}`}>{phase.name}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-mono text-gray-500">{Math.round(phaseProgress * 100)}%</span>
+                                <p className="text-gray-500 text-xs">{phase.duration}</p>
+                              </div>
+                            </div>
+                            <div className="w-full h-1 bg-white/5 rounded-full mb-3 overflow-hidden">
+                              <div className="h-full bg-[#8b5cf6] rounded-full transition-all duration-300" style={{ width: `${phaseProgress * 100}%` }} />
+                            </div>
+                            <div className="space-y-1">
+                              {phase.tasks.map((task: string, ti: number) => {
+                                const taskKey = `phase-${pi}-task-${ti}`;
+                                const done = workflowTasks[taskKey];
+                                return (
+                                  <motion.div key={ti} whileHover={{ x: 2 }} onClick={() => toggleTask(taskKey)} className="flex items-center gap-2 p-1.5 rounded cursor-pointer hover:bg-white/5 transition-colors">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] transition-colors ${done ? "bg-[#8b5cf6]/30 border-[#8b5cf6] text-[#8b5cf6]" : "border-white/20"}`}>
+                                      {done && "✓"}
+                                    </div>
+                                    <span className={`text-xs font-mono ${done ? "text-gray-500 line-through" : "text-gray-300"}`}>{task}</span>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </motion.div>
 
-                  {/* Key Milestones */}
+                  {/* Key Milestones — Interactive Status */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="tech-card p-4 sm:p-6">
                     <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
                       <Clipboard size={14} className="text-[#00e5a0]" /> Key Milestones
                     </h3>
                     <div className="space-y-2">
-                      {activeProposal.executionPlan.keyMilestones.map((milestone: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-2 bg-white/[0.02] rounded border border-white/5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[#00e5a0] text-xs">✓</span>
-                            <span className="text-sm text-gray-300">{milestone.name}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{milestone.date}</span>
-                        </div>
-                      ))}
+                      {activeProposal.executionPlan.keyMilestones.map((milestone: any, i: number) => {
+                        const key = `milestone-${i}`;
+                        const status = milestoneStatuses[key] || "pending";
+                        const statusColors = { pending: { bg: "bg-white/10", border: "border-white/20", text: "text-gray-400", label: "Pending" }, in_progress: { bg: "bg-[#0066ff]/20", border: "border-[#0066ff]/40", text: "text-[#0066ff]", label: "In Progress" }, complete: { bg: "bg-[#00e5a0]/20", border: "border-[#00e5a0]/40", text: "text-[#00e5a0]", label: "Complete" } };
+                        const sc = statusColors[status];
+                        return (
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => cycleMilestoneStatus(key)} className="flex items-center justify-between p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] ${sc.bg} ${sc.border} ${sc.text}`}>
+                                {status === "complete" ? "✓" : status === "in_progress" ? "▶" : "○"}
+                              </div>
+                              <span className={`text-sm ${status === "complete" ? "text-[#00e5a0]" : "text-gray-300"}`}>{milestone.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[8px] font-mono px-2 py-0.5 rounded ${sc.bg} ${sc.border} ${sc.text}`}>{sc.label}</span>
+                              <span className="text-xs text-gray-500">{milestone.date}</span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
 
@@ -1457,42 +1633,81 @@ export default function ContractBidding() {
                     </div>
                   </motion.div>
 
-                  {/* Compliance Checklist */}
+                  {/* Compliance Checklist — Interactive */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="tech-card p-4 sm:p-6">
-                    <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <ListChecks size={14} className="text-[#00e5a0]" /> Compliance Checklist
-                    </h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                        <ListChecks size={14} className="text-[#00e5a0]" /> Compliance Checklist
+                      </h3>
+                      <span className="text-[9px] font-mono text-gray-500">
+                        {Object.values(complianceStatuses).filter(s => s === "complete" || s === "ready").length}/{Object.keys(complianceStatuses).length} cleared
+                      </span>
+                    </div>
                     <div className="space-y-2">
-                      {activeProposal.complianceChecklist.map((item: any, i: number) => (
-                        <div key={i} className="flex items-center gap-3 p-2 bg-white/[0.02] rounded border border-white/5">
-                          <div className={`w-4 h-4 rounded border text-xs flex items-center justify-center ${item.status === "ready" ? "bg-[#00e5a0]/20 border-[#00e5a0]/40 text-[#00e5a0]" : item.status === "action_needed" ? "bg-[#ffb800]/20 border-[#ffb800]/40 text-[#ffb800]" : "bg-white/10 border-white/20 text-gray-400"}`}>
-                            {item.status === "ready" ? "✓" : item.status === "action_needed" ? "!" : "?"}
-                          </div>
-                          <span className="text-sm text-gray-300 flex-1">{item.item}</span>
-                          <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${item.required ? "bg-red-500/20 text-red-300" : "bg-gray-500/20 text-gray-400"}`}>
-                            {item.required ? "Required" : "Optional"}
-                          </span>
-                        </div>
-                      ))}
+                      {activeProposal.complianceChecklist.map((item: any, i: number) => {
+                        const key = `compliance-${i}`;
+                        const status = complianceStatuses[key] || item.status;
+                        const statusConfig: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
+                          verify: { bg: "bg-white/10", border: "border-white/20", text: "text-gray-400", icon: "?", label: "Verify" },
+                          ready: { bg: "bg-[#0066ff]/20", border: "border-[#0066ff]/40", text: "text-[#0066ff]", icon: "✓", label: "Ready" },
+                          complete: { bg: "bg-[#00e5a0]/20", border: "border-[#00e5a0]/40", text: "text-[#00e5a0]", icon: "✓", label: "Complete" },
+                          action_needed: { bg: "bg-[#ffb800]/20", border: "border-[#ffb800]/40", text: "text-[#ffb800]", icon: "!", label: "Action Needed" },
+                        };
+                        const sc = statusConfig[status] || statusConfig.verify;
+                        return (
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => cycleComplianceStatus(key)} className="flex items-center gap-3 p-2.5 bg-white/[0.02] rounded border border-white/5 cursor-pointer hover:bg-white/[0.04] transition-colors">
+                            <div className={`w-5 h-5 rounded border text-[9px] flex items-center justify-center ${sc.bg} ${sc.border} ${sc.text}`}>
+                              {sc.icon}
+                            </div>
+                            <span className={`text-sm flex-1 ${status === "complete" ? "text-[#00e5a0]" : "text-gray-300"}`}>{item.item}</span>
+                            <span className={`text-[8px] font-mono px-2 py-0.5 rounded ${sc.bg} ${sc.border} ${sc.text}`}>{sc.label}</span>
+                            <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${item.required ? "bg-red-500/20 text-red-300" : "bg-gray-500/20 text-gray-400"}`}>
+                              {item.required ? "Required" : "Optional"}
+                            </span>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
 
-                  {/* Next Steps */}
+                  {/* Next Steps — Trackable */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="tech-card p-4 sm:p-6">
                     <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
                       <ArrowRight size={14} className="text-[#0066ff]" /> Next Steps
                     </h3>
-                    <ol className="space-y-2">
-                      {activeProposal.nextSteps.map((step: string, i: number) => (
-                        <li key={i} className="flex gap-3">
-                          <span className="text-[#0066ff] font-bold text-xs shrink-0 w-5">{i + 1}.</span>
-                          <span className="text-gray-300 text-sm">{step}</span>
-                        </li>
-                      ))}
-                    </ol>
+                    <div className="space-y-2">
+                      {activeProposal.nextSteps.map((step: string, i: number) => {
+                        const key = `nextstep-${i}`;
+                        const done = workflowTasks[key] || false;
+                        return (
+                          <motion.div key={i} whileHover={{ x: 2 }} onClick={() => toggleTask(key)} className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-white/5 transition-colors">
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center text-[8px] transition-colors shrink-0 ${done ? "bg-[#0066ff]/30 border-[#0066ff] text-[#0066ff]" : "border-white/20"}`}>
+                              {done && "✓"}
+                            </div>
+                            <span className={`text-sm ${done ? "text-gray-500 line-through" : "text-gray-300"}`}>{step}</span>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
                   </motion.div>
 
-                  <motion.div className="flex gap-3 justify-center">
+                  {/* Save Workflow Progress */}
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="tech-card p-4 bg-[#0066ff]/5 border-[#0066ff]/20">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div>
+                        <p className="text-white text-sm font-bold">Workflow Progress</p>
+                        <p className="text-gray-500 text-xs">Click tasks, milestones, and compliance items to track progress. Save to persist.</p>
+                      </div>
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveWorkflowToProposal} className="px-4 py-2 bg-[#0066ff] text-white text-sm rounded hover:bg-[#0055dd] transition-colors font-bold whitespace-nowrap">
+                        <Award size={12} className="inline mr-2" /> Save Progress
+                      </motion.button>
+                    </div>
+                  </motion.div>
+
+                  <motion.div className="flex flex-wrap gap-3 justify-center">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => { window.dispatchEvent(new CustomEvent("export-proposal", { detail: activeProposal })); toast("Exporting proposal...", { description: "Generating Word document" }); }} className="px-4 py-2 bg-[#00e5a0]/20 border border-[#00e5a0]/40 text-[#00e5a0] text-sm rounded hover:bg-[#00e5a0]/30 transition-colors">
+                      <FileText size={12} className="inline mr-2" /> Export .docx
+                    </motion.button>
                     <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowProposalForm(true)} className="px-4 py-2 bg-[#0066ff]/20 border border-[#0066ff]/40 text-[#0066ff] text-sm rounded hover:bg-[#0066ff]/30 transition-colors">
                       Generate Another
                     </motion.button>
@@ -1628,7 +1843,7 @@ export default function ContractBidding() {
                   {proposals.length > 0 ? (
                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-3">
                       {proposals.map((proposal: any, idx: number) => (
-                        <motion.div key={idx} variants={staggerItem} className="tech-card p-4 sm:p-5 cursor-pointer hover:border-white/15 transition-colors" onClick={() => setActiveProposal(proposal)}>
+                        <motion.div key={idx} variants={staggerItem} className="tech-card p-4 sm:p-5 cursor-pointer hover:border-white/15 transition-colors" onClick={() => { setActiveProposal(proposal); initializeWorkflow(proposal); }}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2 flex-wrap">

@@ -365,6 +365,132 @@ router.get("/api/admin/agents/proposals", adminAuth, async (_req: Request, res: 
   }
 });
 
+/**
+ * PUT /api/admin/agents/proposals/update
+ * Update a proposal's workflow state (task completion, milestone statuses, etc.)
+ */
+router.put("/api/admin/agents/proposals/update", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { id, workflowState } = req.body;
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Proposal id is required" });
+    }
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    const idx = proposals.findIndex((p: any) => p.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Proposal not found" });
+    }
+    proposals[idx] = { ...proposals[idx], workflowState, updatedAt: new Date().toISOString() };
+    storage.write("generated_proposals", proposals);
+    res.json({ success: true, data: proposals[idx] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to update proposal" });
+  }
+});
+
+/**
+ * POST /api/admin/agents/proposals/export
+ * Export a proposal as a structured document (returns JSON structure for client-side docx generation)
+ */
+router.post("/api/admin/agents/proposals/export", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
+    if (!id) {
+      return res.status(400).json({ success: false, error: "Proposal id is required" });
+    }
+    const { storage } = await import("../services/storage.js");
+    const proposals = storage.read("generated_proposals") as any[] || [];
+    const proposal = proposals.find((p: any) => p.id === id);
+    if (!proposal) {
+      return res.status(404).json({ success: false, error: "Proposal not found" });
+    }
+
+    // Build structured document content for client-side rendering
+    const doc = {
+      title: `Bid Proposal: ${proposal.opportunity.title}`,
+      subtitle: `${proposal.opportunity.organization} — ${proposal.opportunity.solicitationNumber || "N/A"}`,
+      generatedAt: proposal.generatedAt,
+      sections: [
+        {
+          heading: "1. Executive Summary",
+          content: [
+            `Bid Recommendation: ${proposal.bidDecision.recommendation} (${proposal.bidDecision.confidence}% confidence)`,
+            `Risk Level: ${proposal.bidDecision.riskLevel}`,
+            `NAICS Code: ${proposal.opportunity.naicsCode}`,
+            `Set-Aside: ${proposal.opportunity.setAsideDescription || proposal.opportunity.setAside || "None"}`,
+            `Response Deadline: ${proposal.opportunity.responseDeadline || "N/A"} (${proposal.opportunity.daysRemaining !== null ? proposal.opportunity.daysRemaining + " days remaining" : "No deadline"})`,
+            "",
+            "Rationale:",
+            ...(proposal.bidDecision.rationale || []).map((r: string) => `  • ${r}`),
+          ],
+        },
+        {
+          heading: "2. Technical Approach",
+          content: [
+            proposal.executionPlan.technicalApproach || "To be determined.",
+            "",
+            "Execution Phases:",
+            ...(proposal.executionPlan.phases || []).flatMap((phase: any, i: number) => [
+              `  Phase ${i + 1}: ${phase.name} (${phase.duration})`,
+              ...(phase.tasks || []).map((t: string) => `    - ${t}`),
+            ]),
+          ],
+        },
+        {
+          heading: "3. Key Milestones",
+          content: (proposal.executionPlan.keyMilestones || []).map((m: any) => `  ${m.status === "complete" ? "✓" : "○"} ${m.name} — ${m.date}`),
+        },
+        {
+          heading: "4. Cost Estimate",
+          content: [
+            `Methodology: ${proposal.costEstimate.methodology}`,
+            `Estimated Range: ${proposal.costEstimate.estimatedRange.low} — ${proposal.costEstimate.estimatedRange.high} (midpoint: ${proposal.costEstimate.estimatedRange.mid})`,
+            "",
+            "Assumptions:",
+            ...(proposal.costEstimate.assumptions || []).map((a: string) => `  • ${a}`),
+          ],
+        },
+        {
+          heading: "5. Proposal Outline",
+          content: [
+            "Volume 1 — Technical:",
+            ...(proposal.proposalOutline.volume1_technical || []).map((s: string) => `  ${s}`),
+            "",
+            "Volume 2 — Past Performance:",
+            ...(proposal.proposalOutline.volume2_past_performance || []).map((s: string) => `  ${s}`),
+            "",
+            "Volume 3 — Pricing:",
+            ...(proposal.proposalOutline.volume3_pricing || []).map((s: string) => `  ${s}`),
+          ],
+        },
+        {
+          heading: "6. Compliance Checklist",
+          content: (proposal.complianceChecklist || []).map((item: any) => {
+            const statusIcon = item.status === "complete" ? "✓" : item.status === "ready" ? "✓" : item.status === "action_needed" ? "!" : "?";
+            return `  [${statusIcon}] ${item.item} ${item.required ? "(Required)" : "(Optional)"}`;
+          }),
+        },
+        {
+          heading: "7. Next Steps",
+          content: (proposal.nextSteps || []).map((step: string, i: number) => `  ${i + 1}. ${step}`),
+        },
+      ],
+      metadata: {
+        proposalId: proposal.id,
+        opportunityId: proposal.opportunity.noticeId,
+        score: proposal.opportunity.score,
+        status: proposal.status,
+        workflowState: proposal.workflowState || null,
+      },
+    };
+
+    res.json({ success: true, data: doc });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to export proposal" });
+  }
+});
+
 // ---- PARAMETERIZED ROUTES (must come AFTER non-parameterized routes) ----
 
 /**

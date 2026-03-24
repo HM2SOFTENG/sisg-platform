@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+const genId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 export interface ComplianceModalData {
   itemKey: string;
@@ -151,7 +151,7 @@ const ComplianceModal: React.FC<ComplianceModalProps> = ({
 
   const addVerificationStep = useCallback(() => {
     const newStep = {
-      id: uuidv4(),
+      id: genId(),
       description: '',
       completed: false,
       responsibleParty: 'Contracts Manager',
@@ -183,7 +183,7 @@ const ComplianceModal: React.FC<ComplianceModalProps> = ({
 
   const addDocument = useCallback(() => {
     const newDoc = {
-      id: uuidv4(),
+      id: genId(),
       name: '',
       status: 'missing' as const,
       date: new Date().toISOString().split('T')[0],
@@ -212,7 +212,7 @@ const ComplianceModal: React.FC<ComplianceModalProps> = ({
 
   const addSignoff = useCallback(() => {
     const newSignoff = {
-      id: uuidv4(),
+      id: genId(),
       approver: '',
       role: '',
       status: 'pending' as const,
@@ -243,7 +243,7 @@ const ComplianceModal: React.FC<ComplianceModalProps> = ({
 
   const addActionItem = useCallback(() => {
     const newItem = {
-      id: uuidv4(),
+      id: genId(),
       description: '',
       priority: 'medium' as const,
       assignee: '',

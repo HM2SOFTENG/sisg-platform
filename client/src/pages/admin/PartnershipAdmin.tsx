@@ -13,6 +13,8 @@ import {
   Calendar,
   Mail,
   User,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface Partner {
@@ -34,21 +36,24 @@ interface KPI {
   color: string;
 }
 
+const defaultForm = {
+  companyName: "",
+  type: "technology" as const,
+  status: "pending" as const,
+  annualValue: "",
+  contactName: "",
+  contactEmail: "",
+  description: "",
+  renewalDate: "",
+};
+
 export default function PartnershipAdmin() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    companyName: "",
-    type: "technology" as const,
-    status: "pending" as const,
-    annualValue: "",
-    contactName: "",
-    contactEmail: "",
-    description: "",
-    renewalDate: "",
-  });
+  const [editPartner, setEditPartner] = useState<Partner | null>(null);
+  const [formData, setFormData] = useState(defaultForm);
 
   useEffect(() => {
     fetchPartnerships();
@@ -114,42 +119,91 @@ export default function PartnershipAdmin() {
     ]);
   };
 
-  const handleAddPartner = async (e: React.FormEvent) => {
+  const openEditPartner = (partner: Partner) => {
+    setEditPartner(partner);
+    setFormData({
+      companyName: partner.companyName,
+      type: partner.type as "technology",
+      status: partner.status as "pending",
+      annualValue: partner.annualValue.toString(),
+      contactName: partner.contactName,
+      contactEmail: partner.contactEmail,
+      description: partner.description,
+      renewalDate: partner.renewalDate,
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditPartner(null);
+    setFormData(defaultForm);
+  };
+
+  const handleSubmitPartner = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("sisg_admin_token");
-      const response = await fetch("/api/admin/partnerships", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          annualValue: parseFloat(formData.annualValue),
-        }),
-      });
+      const payload = { ...formData, annualValue: parseFloat(formData.annualValue) };
 
-      if (response.ok) {
-        toast.success("Partner added successfully");
-        fetchPartnerships();
-        setShowModal(false);
-        setFormData({
-          companyName: "",
-          type: "technology",
-          status: "pending",
-          annualValue: "",
-          contactName: "",
-          contactEmail: "",
-          description: "",
-          renewalDate: "",
+      if (editPartner) {
+        const response = await fetch(`/api/admin/partnerships/${editPartner.id}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
+        if (response.ok) {
+          const updated = await response.json();
+          const newList = partners.map((p) => (p.id === updated.id ? updated : p));
+          setPartners(newList);
+          calculateKPIs(newList);
+          toast.success("Partner updated successfully");
+          closeModal();
+        } else {
+          toast.error("Failed to update partner");
+        }
       } else {
-        toast.error("Failed to add partner");
+        const response = await fetch("/api/admin/partnerships", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (response.ok) {
+          const newPartner = await response.json();
+          const newList = [...partners, newPartner];
+          setPartners(newList);
+          calculateKPIs(newList);
+          toast.success("Partner added successfully");
+          closeModal();
+        } else {
+          toast.error("Failed to add partner");
+        }
       }
     } catch (error) {
-      console.error("Error creating partnership:", error);
-      toast.error("Error adding partner");
+      console.error("Error saving partner:", error);
+      toast.error("Error saving partner");
+    }
+  };
+
+  const handleDeletePartner = async (id: string) => {
+    if (!confirm("Delete this partner? This cannot be undone.")) return;
+    try {
+      const token = localStorage.getItem("sisg_admin_token");
+      const response = await fetch(`/api/admin/partnerships/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (response.ok) {
+        const newList = partners.filter((p) => p.id !== id);
+        setPartners(newList);
+        calculateKPIs(newList);
+        toast.success("Partner deleted");
+      } else {
+        toast.error("Failed to delete partner");
+      }
+    } catch (error) {
+      console.error("Error deleting partner:", error);
+      toast.error("Failed to delete partner");
     }
   };
 
@@ -288,7 +342,20 @@ export default function PartnershipAdmin() {
                         {partner.description}
                       </p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition flex-shrink-0" />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditPartner(partner); }}
+                        className="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeletePartner(partner.id); }}
+                        className="p-1.5 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Badges */}
@@ -360,7 +427,7 @@ export default function PartnershipAdmin() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowModal(false)}
+            onClick={closeModal}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -372,9 +439,9 @@ export default function PartnershipAdmin() {
                 className="text-lg sm:text-xl font-bold text-white mb-4"
                 style={{ fontFamily: "Sora, sans-serif" }}
               >
-                Add New Partner
+                {editPartner ? "Edit Partner" : "Add New Partner"}
               </h2>
-              <form onSubmit={handleAddPartner} className="space-y-4">
+              <form onSubmit={handleSubmitPartner} className="space-y-4">
                 <div>
                   <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                     Company Name
@@ -504,7 +571,7 @@ export default function PartnershipAdmin() {
                 <div className="flex gap-2 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={closeModal}
                     className="flex-1 px-4 py-2 border border-gray-700 rounded text-gray-300 hover:bg-gray-800 transition"
                   >
                     Cancel
@@ -513,7 +580,7 @@ export default function PartnershipAdmin() {
                     type="submit"
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
                   >
-                    Create
+                    {editPartner ? "Save" : "Create"}
                   </button>
                 </div>
               </form>

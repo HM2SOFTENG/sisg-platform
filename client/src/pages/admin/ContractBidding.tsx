@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, RefreshCw, Search, ExternalLink, ChevronDown, ChevronUp, Zap, Target, Clock, Shield, FileText, TrendingUp, Bell, CheckCircle2, AlertTriangle, ArrowRight, MapPin, Building2, User, Phone, Mail, Clipboard, BookOpen, Award, Briefcase, ListChecks } from "lucide-react";
+import { Plus, X, RefreshCw, Search, ExternalLink, ChevronDown, ChevronUp, Zap, Target, Clock, Shield, FileText, TrendingUp, Bell, CheckCircle2, AlertTriangle, ArrowRight, MapPin, Building2, User, Phone, Mail, Clipboard, BookOpen, Award, Briefcase, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import TaskModal, { TaskModalData } from "@/components/modals/TaskModal";
 import MilestoneModal, { MilestoneModalData } from "@/components/modals/MilestoneModal";
@@ -262,6 +262,7 @@ export default function ContractBidding() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "bidding" | "review" | "active" | "completed">("all");
   const [showModal, setShowModal] = useState(false);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [selectedOppForBid, setSelectedOppForBid] = useState<SamOpportunity | null>(null);
   const [formData, setFormData] = useState({
     title: "", client: "", value: "", type: "assessment" as const,
@@ -781,31 +782,96 @@ export default function ContractBidding() {
       keyPersonnel: "", score: 0,
     });
     setSelectedOppForBid(null);
+    setEditingContract(null);
+  };
+
+  const openEditContract = (contract: Contract) => {
+    setEditingContract(contract);
+    setFormData({
+      title: contract.title,
+      client: contract.client,
+      value: contract.value.toString(),
+      type: contract.type as "assessment",
+      status: contract.status as "bidding",
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      description: contract.description || "",
+      samOpportunityId: contract.samOpportunityId || "",
+      solicitationNumber: contract.solicitationNumber || "",
+      naicsCode: contract.naicsCode || "",
+      setAside: contract.setAside || "",
+      setAsideDescription: contract.setAsideDescription || "",
+      department: contract.department || "",
+      agency: contract.agency || "",
+      placeOfPerformance: contract.placeOfPerformance || "",
+      contractingOfficer: contract.contractingOfficer || "",
+      contractingOfficerEmail: contract.contractingOfficerEmail || "",
+      samLink: contract.samLink || "",
+      bidRecommendation: contract.bidRecommendation || "",
+      pursuitStrategy: contract.pursuitStrategy || "",
+      capabilityAlignment: contract.capabilityAlignment || [],
+      keyPersonnel: contract.keyPersonnel || "",
+      score: contract.score || 0,
+    });
+    setShowModal(true);
+  };
+
+  const handleDeleteContract = async (id: string) => {
+    if (!confirm("Delete this contract bid? This cannot be undone.")) return;
+    try {
+      const response = await fetch(`/api/admin/contracts/${id}`, {
+        method: "DELETE", headers,
+      });
+      if (response.ok) {
+        setContracts((prev) => prev.filter((c) => c.id !== id));
+        toast.success("Contract deleted");
+      } else {
+        toast.error("Failed to delete contract");
+      }
+    } catch (error) {
+      toast.error("Failed to delete contract");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch("/api/admin/contracts", {
-        method: "POST", headers,
-        body: JSON.stringify({ ...formData, value: parseFloat(formData.value) }),
-      });
-      if (response.ok) {
-        const newContract = await response.json();
-        setContracts((prev) => [...prev, newContract]);
-        setShowModal(false);
-        const title = formData.title;
-        resetFormData();
-        if (selectedOppForBid) {
-          toast.success("Contract bid generated from SAM.gov opportunity — review and submit", { description: `"${title}" added to pipeline`, icon: <CheckCircle2 size={16} /> });
+      if (editingContract) {
+        const response = await fetch(`/api/admin/contracts/${editingContract.id}`, {
+          method: "PUT", headers,
+          body: JSON.stringify({ ...formData, value: parseFloat(formData.value) }),
+        });
+        if (response.ok) {
+          const updated = await response.json();
+          setContracts((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+          setShowModal(false);
+          resetFormData();
+          toast.success("Contract updated", { icon: <CheckCircle2 size={16} /> });
         } else {
-          toast.success("Contract bid created", { description: `"${title}" added to pipeline`, icon: <CheckCircle2 size={16} /> });
+          toast.error("Failed to update contract");
         }
       } else {
-        toast.error("Failed to create contract bid");
+        const response = await fetch("/api/admin/contracts", {
+          method: "POST", headers,
+          body: JSON.stringify({ ...formData, value: parseFloat(formData.value) }),
+        });
+        if (response.ok) {
+          const newContract = await response.json();
+          setContracts((prev) => [...prev, newContract]);
+          setShowModal(false);
+          const title = formData.title;
+          resetFormData();
+          if (selectedOppForBid) {
+            toast.success("Contract bid generated from SAM.gov opportunity — review and submit", { description: `"${title}" added to pipeline`, icon: <CheckCircle2 size={16} /> });
+          } else {
+            toast.success("Contract bid created", { description: `"${title}" added to pipeline`, icon: <CheckCircle2 size={16} /> });
+          }
+        } else {
+          toast.error("Failed to create contract bid");
+        }
       }
     } catch (error) {
-      toast.error("Failed to create contract bid");
+      toast.error("Failed to save contract bid");
     }
   };
 
@@ -1098,9 +1164,17 @@ export default function ContractBidding() {
                           <h3 className="text-white font-bold text-sm sm:text-lg break-words" style={{ fontFamily: "Sora, sans-serif" }}>{contract.title}</h3>
                           <p className="text-gray-400 text-xs sm:text-sm mt-1 break-words">{contract.client}</p>
                         </div>
-                        <span className="text-[9px] sm:text-[10px] font-mono px-2 py-1 border rounded shrink-0" style={{ borderColor: getStatusColor(contract.status), color: getStatusColor(contract.status) }}>
-                          {contract.status.toUpperCase()}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[9px] sm:text-[10px] font-mono px-2 py-1 border rounded" style={{ borderColor: getStatusColor(contract.status), color: getStatusColor(contract.status) }}>
+                            {contract.status.toUpperCase()}
+                          </span>
+                          <button onClick={() => openEditContract(contract)} className="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => handleDeleteContract(contract.id)} className="p-1.5 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-4 sm:gap-4">
                         <div>
@@ -2154,7 +2228,7 @@ export default function ContractBidding() {
                 <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
                   <div className="flex-1">
                     <h2 className="text-lg sm:text-2xl font-bold text-white flex-1 break-words" style={{ fontFamily: "Sora, sans-serif" }}>
-                      {selectedOppForBid ? "Generate Contract Bid from SAM.gov" : "Add Contract"}
+                      {editingContract ? "Edit Contract" : selectedOppForBid ? "Generate Contract Bid from SAM.gov" : "Add Contract"}
                     </h2>
                     {selectedOppForBid && (
                       <p className="text-gray-400 text-xs sm:text-sm mt-1">Pre-filled from opportunity: {selectedOppForBid.solicitationNumber}</p>

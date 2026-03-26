@@ -12,6 +12,8 @@ import {
   Calendar,
   User,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface Project {
@@ -35,20 +37,23 @@ interface KPI {
   color: string;
 }
 
+const defaultFormData = {
+  name: "",
+  description: "",
+  status: "planning" as const,
+  priority: "medium" as const,
+  budget: "",
+  lead: "",
+  deadline: "",
+};
+
 export default function ProjectManagement() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    status: "planning" as const,
-    priority: "medium" as const,
-    budget: "",
-    lead: "",
-    deadline: "",
-  });
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
 
   useEffect(() => {
     fetchProjects();
@@ -120,41 +125,111 @@ export default function ProjectManagement() {
     ]);
   };
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const openEditProject = (project: Project) => {
+    setEditProject(project);
+    setFormData({
+      name: project.name,
+      description: project.description,
+      status: project.status as "planning",
+      priority: project.priority as "medium",
+      budget: project.budget.toString(),
+      lead: project.lead,
+      deadline: project.deadline,
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditProject(null);
+    setFormData(defaultFormData);
+  };
+
+  const handleSubmitProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("sisg_admin_token");
-      const response = await fetch("/api/admin/projects", {
-        method: "POST",
+
+      if (editProject) {
+        // UPDATE
+        const response = await fetch(`/api/admin/projects/${editProject.id}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...formData,
+            budget: parseFloat(formData.budget),
+          }),
+        });
+
+        if (response.ok) {
+          const updated = await response.json();
+          const newList = projects.map((p) =>
+            p.id === updated.id ? updated : p
+          );
+          setProjects(newList);
+          calculateKPIs(newList);
+          toast.success("Project updated successfully");
+          closeModal();
+        } else {
+          toast.error("Failed to update project");
+        }
+      } else {
+        // CREATE
+        const response = await fetch("/api/admin/projects", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...formData,
+            budget: parseFloat(formData.budget),
+          }),
+        });
+
+        if (response.ok) {
+          const newProject = await response.json();
+          const newList = [...projects, newProject];
+          setProjects(newList);
+          calculateKPIs(newList);
+          toast.success("Project created successfully");
+          closeModal();
+        } else {
+          toast.error("Failed to create project");
+        }
+      }
+    } catch (error) {
+      console.error("Error saving project:", error);
+      toast.error("Failed to save project");
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    try {
+      const token = localStorage.getItem("sisg_admin_token");
+      const response = await fetch(`/api/admin/projects/${id}`, {
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          budget: parseFloat(formData.budget),
-        }),
       });
 
       if (response.ok) {
-        toast.success("Project created successfully");
-        fetchProjects();
-        setShowModal(false);
-        setFormData({
-          name: "",
-          description: "",
-          status: "planning",
-          priority: "medium",
-          budget: "",
-          lead: "",
-          deadline: "",
-        });
+        const newList = projects.filter((p) => p.id !== id);
+        setProjects(newList);
+        calculateKPIs(newList);
+        toast.success("Project deleted");
       } else {
-        toast.error("Failed to create project");
+        toast.error("Failed to delete project");
       }
     } catch (error) {
-      console.error("Error creating project:", error);
-      toast.error("Failed to create project");
+      console.error("Error deleting project:", error);
+      toast.error("Failed to delete project");
     }
   };
 
@@ -263,20 +338,36 @@ export default function ProjectManagement() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="tech-card p-5 border border-gray-700 hover:border-blue-500/50 transition cursor-pointer group"
+                className="tech-card p-5 border border-gray-700 hover:border-blue-500/50 transition group"
               >
                 <div className="space-y-4">
                   {/* Header */}
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-white break-words">
                         {project.name}
                       </h3>
                       <p className="text-sm text-gray-400 mt-1">
                         {project.description}
                       </p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition" />
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        onClick={() => openEditProject(project)}
+                        className="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
+                        title="Edit project"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="p-1.5 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Delete project"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition ml-1" />
+                    </div>
                   </div>
 
                   {/* Badges */}
@@ -356,14 +447,14 @@ export default function ProjectManagement() {
           )}
         </motion.div>
 
-        {/* Add Project Modal */}
+        {/* Add / Edit Project Modal */}
         {showModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => setShowModal(false)}
+            onClick={closeModal}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -372,9 +463,9 @@ export default function ProjectManagement() {
               className="tech-card p-4 sm:p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-lg sm:text-xl font-bold text-white mb-4" style={{ fontFamily: "Sora, sans-serif" }}>
-                Add New Project
+                {editProject ? "Edit Project" : "Add New Project"}
               </h2>
-              <form onSubmit={handleAddProject} className="space-y-4">
+              <form onSubmit={handleSubmitProject} className="space-y-4">
                 <div>
                   <label className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
                     Project Name
@@ -498,7 +589,7 @@ export default function ProjectManagement() {
                 <div className="flex gap-2 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={closeModal}
                     className="flex-1 px-4 py-2 border border-gray-700 rounded text-gray-300 hover:bg-gray-800 transition"
                   >
                     Cancel
@@ -507,7 +598,7 @@ export default function ProjectManagement() {
                     type="submit"
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded text-white font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition"
                   >
-                    Create
+                    {editProject ? "Save Changes" : "Create"}
                   </button>
                 </div>
               </form>

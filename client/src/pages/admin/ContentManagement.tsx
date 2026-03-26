@@ -111,19 +111,65 @@ const ContentManagement: React.FC = () => {
       });
 
       if (response.ok) {
-        const updatedItem = content.find(item => item.id === id);
-        if (updatedItem) {
-          updatedItem.content = editContent;
-          setContent([...content]);
-          setEditingId(null);
-          toast.success('Content saved successfully');
-        }
+        setContent(prev => prev.map(item =>
+          item.id === id
+            ? { ...item, content: editContent, lastEdited: new Date().toISOString() }
+            : item
+        ));
+        setEditingId(null);
+        toast.success('Content saved successfully');
       } else {
         toast.error('Failed to save content');
       }
     } catch (error) {
       console.error('Error saving content:', error);
       toast.error('Error saving content');
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'published' ? 'draft' : 'published';
+    try {
+      const response = await fetch(`/api/admin/content/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        setContent(prev => prev.map(item =>
+          item.id === id ? { ...item, status: newStatus as ContentItem['status'] } : item
+        ));
+        toast.success(`Content ${newStatus === 'published' ? 'published' : 'unpublished'}`);
+      } else {
+        toast.error('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      toast.error('Error updating status');
+    }
+  };
+
+  const handleDeleteContent = async (id: string) => {
+    if (!confirm('Delete this content item? This cannot be undone.')) return;
+    try {
+      const response = await fetch(`/api/admin/content/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        setContent(prev => prev.filter(item => item.id !== id));
+        toast.success('Content deleted');
+      } else {
+        toast.error('Failed to delete content');
+      }
+    } catch (error) {
+      console.error('Error deleting content:', error);
+      toast.error('Error deleting content');
     }
   };
 
@@ -390,18 +436,42 @@ const ContentManagement: React.FC = () => {
                                 {item.content}
                               </p>
                             </div>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={e => {
-                                e.stopPropagation();
-                                setEditingId(item.id);
-                                setEditContent(item.content);
-                              }}
-                              className="px-4 py-2 bg-[#0066ff] text-white rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
-                            >
-                              Edit
-                            </motion.button>
+                            <div className="flex gap-2 flex-wrap">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setEditingId(item.id);
+                                  setEditContent(item.content);
+                                }}
+                                className="px-4 py-2 bg-[#0066ff] text-white rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
+                              >
+                                Edit
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleToggleStatus(item.id, item.status);
+                                }}
+                                className="px-4 py-2 bg-gray-700 text-white rounded-lg font-mono text-sm font-semibold hover:bg-gray-600 transition-all"
+                              >
+                                {item.status === 'published' ? 'Unpublish' : 'Publish'}
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleDeleteContent(item.id);
+                                }}
+                                className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-mono text-sm font-semibold hover:bg-red-500/30 transition-all"
+                              >
+                                Delete
+                              </motion.button>
+                            </div>
                           </>
                         )}
                       </motion.div>

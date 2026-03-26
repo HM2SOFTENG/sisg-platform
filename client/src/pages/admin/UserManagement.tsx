@@ -11,6 +11,8 @@ import {
   X,
   CheckCircle,
   Circle,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
@@ -31,20 +33,23 @@ interface KPI {
   icon: React.ReactNode;
 }
 
+const defaultMemberForm = {
+  name: '',
+  role: '',
+  email: '',
+  department: 'Engineering' as const,
+  skills: '',
+};
+
 const UserManagement: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
   const [activeDepartment, setActiveDepartment] = useState<'All' | 'Executive' | 'Engineering' | 'Security' | 'Operations' | 'Marketing'>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editMember, setEditMember] = useState<TeamMember | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newMember, setNewMember] = useState({
-    name: '',
-    role: '',
-    email: '',
-    department: 'Engineering' as const,
-    skills: '',
-  });
+  const [memberForm, setMemberForm] = useState(defaultMemberForm);
 
   const token = localStorage.getItem('sisg_admin_token');
 
@@ -95,39 +100,107 @@ const UserManagement: React.FC = () => {
     setFilteredMembers(filtered);
   };
 
-  const handleAddMember = async () => {
-    if (!newMember.name || !newMember.role || !newMember.email) {
+  const openAddModal = () => {
+    setEditMember(null);
+    setMemberForm(defaultMemberForm);
+    setShowModal(true);
+  };
+
+  const openEditModal = (member: TeamMember) => {
+    setEditMember(member);
+    setMemberForm({
+      name: member.name,
+      role: member.role,
+      email: member.email,
+      department: member.department as 'Engineering',
+      skills: member.skills.join(', '),
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditMember(null);
+    setMemberForm(defaultMemberForm);
+  };
+
+  const handleSaveMember = async () => {
+    if (!memberForm.name || !memberForm.role || !memberForm.email) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     try {
-      const response = await fetch('/api/admin/team', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...newMember,
-          skills: newMember.skills.split(',').map(s => s.trim()),
-          status: 'active',
-          joinDate: new Date().toISOString(),
-        }),
+      if (editMember) {
+        // UPDATE
+        const response = await fetch(`/api/admin/team/${editMember.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...memberForm,
+            skills: memberForm.skills.split(',').map(s => s.trim()).filter(Boolean),
+          }),
+        });
+
+        if (response.ok) {
+          const updated = await response.json();
+          setMembers(prev => prev.map(m => m.id === updated.id ? updated : m));
+          closeModal();
+          toast.success('Member updated successfully');
+        } else {
+          toast.error('Failed to update member');
+        }
+      } else {
+        // CREATE
+        const response = await fetch('/api/admin/team', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...memberForm,
+            skills: memberForm.skills.split(',').map(s => s.trim()).filter(Boolean),
+            status: 'active',
+            joinDate: new Date().toISOString(),
+          }),
+        });
+
+        if (response.ok) {
+          const created = await response.json();
+          setMembers(prev => [...prev, created]);
+          closeModal();
+          toast.success('User created successfully');
+        } else {
+          toast.error('Failed to create user');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving member:', error);
+      toast.error('Error saving member');
+    }
+  };
+
+  const handleDeleteMember = async (id: string) => {
+    if (!confirm('Remove this team member? This cannot be undone.')) return;
+    try {
+      const response = await fetch(`/api/admin/team/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
-        const created = await response.json();
-        setMembers([...members, created]);
-        setNewMember({ name: '', role: '', email: '', department: 'Engineering', skills: '' });
-        setShowModal(false);
-        toast.success('User created successfully');
+        setMembers(prev => prev.filter(m => m.id !== id));
+        toast.success('Member removed');
       } else {
-        toast.error('Failed to create user');
+        toast.error('Failed to remove member');
       }
     } catch (error) {
-      console.error('Error adding member:', error);
-      toast.error('Error creating user');
+      console.error('Error deleting member:', error);
+      toast.error('Error removing member');
     }
   };
 
@@ -191,7 +264,7 @@ const UserManagement: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setShowModal(true)}
+            onClick={openAddModal}
             className="w-full sm:w-auto flex items-center gap-2 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -306,7 +379,7 @@ const UserManagement: React.FC = () => {
                   className="tech-card hover:border-[#0066ff]/50 transition-all"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-sora text-lg font-bold text-white">
                           {member.name}
@@ -329,6 +402,23 @@ const UserManagement: React.FC = () => {
                       <span className={`inline-block px-2 py-1 rounded text-xs font-mono font-semibold ${getDepartmentColor(member.department)}`}>
                         {member.department}
                       </span>
+                    </div>
+                    {/* Edit / Delete buttons */}
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        onClick={() => openEditModal(member)}
+                        className="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white transition-colors"
+                        title="Edit member"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member.id)}
+                        className="p-1.5 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Remove member"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
 
@@ -374,7 +464,7 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Member Modal */}
+      {/* Add / Edit Member Modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -382,7 +472,7 @@ const UserManagement: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowModal(false)}
+            onClick={closeModal}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -392,11 +482,13 @@ const UserManagement: React.FC = () => {
               className="tech-card w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-sora text-2xl font-bold">Add Team Member</h2>
+                <h2 className="font-sora text-2xl font-bold">
+                  {editMember ? 'Edit Team Member' : 'Add Team Member'}
+                </h2>
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -410,8 +502,8 @@ const UserManagement: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={newMember.name}
-                    onChange={e => setNewMember({ ...newMember, name: e.target.value })}
+                    value={memberForm.name}
+                    onChange={e => setMemberForm({ ...memberForm, name: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#0066ff]"
                   />
                 </div>
@@ -422,8 +514,8 @@ const UserManagement: React.FC = () => {
                   </label>
                   <input
                     type="email"
-                    value={newMember.email}
-                    onChange={e => setNewMember({ ...newMember, email: e.target.value })}
+                    value={memberForm.email}
+                    onChange={e => setMemberForm({ ...memberForm, email: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#0066ff]"
                   />
                 </div>
@@ -434,8 +526,8 @@ const UserManagement: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={newMember.role}
-                    onChange={e => setNewMember({ ...newMember, role: e.target.value })}
+                    value={memberForm.role}
+                    onChange={e => setMemberForm({ ...memberForm, role: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#0066ff]"
                   />
                 </div>
@@ -445,11 +537,11 @@ const UserManagement: React.FC = () => {
                     Department
                   </label>
                   <select
-                    value={newMember.department}
+                    value={memberForm.department}
                     onChange={e =>
-                      setNewMember({
-                        ...newMember,
-                        department: e.target.value as typeof newMember.department,
+                      setMemberForm({
+                        ...memberForm,
+                        department: e.target.value as typeof memberForm.department,
                       })
                     }
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#0066ff]"
@@ -468,8 +560,8 @@ const UserManagement: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={newMember.skills}
-                    onChange={e => setNewMember({ ...newMember, skills: e.target.value })}
+                    value={memberForm.skills}
+                    onChange={e => setMemberForm({ ...memberForm, skills: e.target.value })}
                     placeholder="React, TypeScript, Node.js"
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#0066ff]"
                   />
@@ -479,15 +571,15 @@ const UserManagement: React.FC = () => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={handleAddMember}
+                    onClick={handleSaveMember}
                     className="flex-1 bg-gradient-to-r from-[#0066ff] to-[#00d4ff] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:shadow-lg hover:shadow-[#0066ff]/50 transition-all"
                   >
-                    Add
+                    {editMember ? 'Save Changes' : 'Add'}
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowModal(false)}
+                    onClick={closeModal}
                     className="flex-1 bg-gray-700 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold hover:bg-gray-600 transition-all"
                   >
                     Cancel

@@ -38,6 +38,8 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import ClawBotCenter from "./pages/admin/ClawBotCenter";
 import SisgAgents from "./pages/admin/SisgAgents";
 import CommandPortal from "./pages/admin/CommandPortal";
+import Messaging from "./pages/admin/Messaging";
+import UserSettings from "./pages/UserSettings";
 
 function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -82,6 +84,8 @@ function Router() {
       <Route path="/dashboard/agents">{() => <ProtectedDashboard component={SisgAgents} />}</Route>
       <Route path="/dashboard/clawbot">{() => <ProtectedDashboard component={ClawBotCenter} />}</Route>
       <Route path="/dashboard/settings">{() => <ProtectedDashboard component={AdminSettings} />}</Route>
+      <Route path="/dashboard/messages">{() => <ProtectedDashboard component={Messaging} />}</Route>
+      <Route path="/dashboard/user-settings">{() => <ProtectedDashboard component={UserSettings} />}</Route>
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

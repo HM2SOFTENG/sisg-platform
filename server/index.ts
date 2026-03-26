@@ -9,6 +9,7 @@ import adminRouter from "./routes/admin.js";
 import clawbotRouter from "./routes/clawbot.js";
 import agentsRouter from "./routes/sisg-agents.js";
 import gatewayRouter from "./routes/gateway.js";
+import messagesRouter from "./routes/messages.js";
 import { sisgAgents } from "./services/sisg-agents.js";
 import { storage } from "./services/storage.js";
 
@@ -145,6 +146,7 @@ async function startServer() {
   app.use(clawbotRouter);
   app.use(agentsRouter);
   app.use(gatewayRouter);
+  app.use(messagesRouter);
 
 
 

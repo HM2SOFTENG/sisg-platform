@@ -40,6 +40,7 @@ import SisgAgents from "./pages/admin/SisgAgents";
 import CommandPortal from "./pages/admin/CommandPortal";
 import Messaging from "./pages/admin/Messaging";
 import UserSettings from "./pages/UserSettings";
+import UserProfile from "./pages/UserProfile";
 
 function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/partners" component={Partners} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/u/:userId" component={UserProfile} />
 
       {/* Protected Dashboard */}
       <Route path="/dashboard">{() => <ProtectedDashboard component={Dashboard} />}</Route>

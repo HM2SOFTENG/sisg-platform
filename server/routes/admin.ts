@@ -771,6 +771,87 @@ router.post("/api/admin/activity", adminAuth, async (req: Request, res: Response
 });
 
 // ============================================================================
+// USER PROFILE + POSTS
+// ============================================================================
+
+// GET /api/admin/users/:id — public profile (no adminAuth needed)
+router.get("/api/admin/users/:id", async (req: Request, res: Response) => {
+  try {
+    const team = storage.getCollection("team") || [];
+    const member = team.find((m: any) => m.id === req.params.id);
+    if (!member) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    // Return public-safe fields only
+    const { id, name, email, role, department, status, joinDate, skills } = member as any;
+    res.json({ id, name, email, role, department, status, joinDate, skills: skills || [] });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// GET /api/admin/users/:id/posts — list posts for user
+router.get("/api/admin/users/:id/posts", async (req: Request, res: Response) => {
+  try {
+    const allPosts = storage.getCollection("user_posts") || [];
+    const posts = (allPosts as any[])
+      .filter((p: any) => p.authorId === req.params.id)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json({ posts });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
+// POST /api/admin/users/:id/posts — create post
+router.post("/api/admin/users/:id/posts", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const team = storage.getCollection("team") || [];
+    const member = (team as any[]).find((m: any) => m.id === req.params.id);
+    if (!member) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const post = {
+      id: `post_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      authorId: req.params.id,
+      authorName: (member as any).name,
+      authorEmail: (member as any).email,
+      content: req.body.content || "",
+      type: "post",
+      likes: [] as string[],
+      createdAt: new Date().toISOString(),
+    };
+    storage.addToCollection("user_posts", post);
+    res.status(201).json({ post });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create post" });
+  }
+});
+
+// POST /api/admin/users/:id/posts/:postId/like — toggle like
+router.post("/api/admin/users/:id/posts/:postId/like", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const allPosts = storage.getCollection("user_posts") || [];
+    const post = (allPosts as any[]).find((p: any) => p.id === req.params.postId);
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    const { userId } = req.body as { userId: string };
+    const likes: string[] = post.likes || [];
+    const idx = likes.indexOf(userId);
+    if (idx === -1) {
+      likes.push(userId);
+    } else {
+      likes.splice(idx, 1);
+    }
+    const updated = storage.updateInCollection("user_posts", req.params.postId, { likes });
+    res.json({ post: updated });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
+});
+
+// ============================================================================
 // EXPORT
 // ============================================================================
 

@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
+import UserProfileModal from "@/components/UserProfileModal";
 import {
   MessageSquare, Plus, Send, X, Users, Hash, Search, Loader2,
   RefreshCw, ChevronRight, Clock, CheckCheck,
@@ -410,17 +411,19 @@ interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
   showSender: boolean;
+  onAvatarClick: (id: string, name: string, email: string) => void;
 }
 
-function MessageBubble({ message, isMe, showSender }: MessageBubbleProps) {
+function MessageBubble({ message, isMe, showSender, onAvatarClick }: MessageBubbleProps) {
   const color = avatarColor(message.senderName);
   return (
     <div className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 self-end mb-0.5"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 self-end mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
         style={{ backgroundColor: color }}
         title={message.senderName}
+        onClick={() => onAvatarClick(message.senderId, message.senderName, message.senderEmail)}
       >
         {getInitials(message.senderName)}
       </div>
@@ -428,7 +431,10 @@ function MessageBubble({ message, isMe, showSender }: MessageBubbleProps) {
       <div className={`flex flex-col max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
         {/* Sender name above bubble */}
         {showSender && (
-          <span className="text-[10px] font-mono text-[var(--muted-foreground)] mb-0.5 px-1">
+          <span
+            className="text-[10px] font-mono text-[var(--muted-foreground)] mb-0.5 px-1 cursor-pointer hover:text-[#0066ff] transition-colors"
+            onClick={() => onAvatarClick(message.senderId, message.senderName, message.senderEmail)}
+          >
             {isMe ? "You" : message.senderName}
           </span>
         )}
@@ -547,6 +553,7 @@ function ChatView({ channel, currentUser }: ChatViewProps) {
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [profileUser, setProfileUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastTimestampRef = useRef<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -702,6 +709,7 @@ function ChatView({ channel, currentUser }: ChatViewProps) {
                 message={msg}
                 isMe={isMe}
                 showSender={showSender}
+                onAvatarClick={(id, name, email) => setProfileUser({ id, name, email })}
               />
             );
           })
@@ -728,6 +736,18 @@ function ChatView({ channel, currentUser }: ChatViewProps) {
           </button>
         </div>
       </div>
+
+      {/* Profile modal */}
+      {profileUser && (
+        <UserProfileModal
+          userId={profileUser.id}
+          userName={profileUser.name}
+          userEmail={profileUser.email}
+          onClose={() => setProfileUser(null)}
+          onSendMessage={() => setProfileUser(null)}
+          onViewProfile={(id) => { window.location.href = `/u/${id}`; }}
+        />
+      )}
     </div>
   );
 }

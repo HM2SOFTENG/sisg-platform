@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useLocation } from 'wouter';
 import {
   Users,
   Plus,
@@ -15,6 +16,20 @@ import {
   Trash2,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import UserProfileModal from '@/components/UserProfileModal';
+
+// ---- Avatar helpers ----
+const AVATAR_COLORS = [
+  "#0066ff", "#8b5cf6", "#00e5a0", "#ffb800", "#ff6b35", "#00d4ff", "#ff3b3b",
+];
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function getInitials(name: string): string {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
 
 interface TeamMember {
   id: string;
@@ -42,6 +57,7 @@ const defaultMemberForm = {
 };
 
 const UserManagement: React.FC = () => {
+  const [, navigate] = useLocation();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
   const [activeDepartment, setActiveDepartment] = useState<'All' | 'Executive' | 'Engineering' | 'Security' | 'Operations' | 'Marketing'>('All');
@@ -50,6 +66,7 @@ const UserManagement: React.FC = () => {
   const [editMember, setEditMember] = useState<TeamMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [memberForm, setMemberForm] = useState(defaultMemberForm);
+  const [profileMember, setProfileMember] = useState<TeamMember | null>(null);
 
   const token = localStorage.getItem('sisg_admin_token');
 
@@ -381,7 +398,19 @@ const UserManagement: React.FC = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-sora text-lg font-bold text-white">
+                        {/* Clickable avatar */}
+                        <button
+                          onClick={() => setProfileMember(member)}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 hover:opacity-80 transition-opacity"
+                          style={{ backgroundColor: avatarColor(member.name) }}
+                          title={`View ${member.name}'s profile`}
+                        >
+                          {getInitials(member.name)}
+                        </button>
+                        <h3
+                          className="font-sora text-lg font-bold text-white cursor-pointer hover:text-cyan-400 transition-colors"
+                          onClick={() => setProfileMember(member)}
+                        >
                           {member.name}
                         </h3>
                         <motion.div
@@ -590,6 +619,22 @@ const UserManagement: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* User Profile Modal */}
+      {profileMember && (
+        <UserProfileModal
+          userId={profileMember.id}
+          userName={profileMember.name}
+          userEmail={profileMember.email}
+          userRole={profileMember.role}
+          userDept={profileMember.department}
+          skills={profileMember.skills}
+          joinDate={profileMember.joinDate}
+          onClose={() => setProfileMember(null)}
+          onSendMessage={() => { setProfileMember(null); navigate('/dashboard/messages'); }}
+          onViewProfile={(id) => { window.location.href = `/u/${id}`; }}
+        />
+      )}
     </DashboardLayout>
   );
 };

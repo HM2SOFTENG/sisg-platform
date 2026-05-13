@@ -72,6 +72,9 @@ jobs:
             # Navigate to app directory
             cd /app/sisg-platform
 
+            # Ensure host paths needed by nginx/certbot exist
+            sudo mkdir -p /var/www/certbot
+
             # Stop running containers
             docker-compose down || true
 
@@ -114,13 +117,49 @@ jobs:
             # block, so the Dockerfile's config is used as-is).
             docker-compose up -d --force-recreate
 
-            # Wait for container to start
-            echo "Waiting for container startup..."
-            sleep 15
+            # Ensure cert renewals reload the running nginx container
+            sudo mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+            sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-sisg-nginx.sh >/dev/null <<'HOOKEOF'
+            #!/usr/bin/env bash
+            set -e
+            docker exec sisg-nginx nginx -s reload
+            HOOKEOF
+            sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-sisg-nginx.sh
 
-            # Verify deployment via API health endpoint
+            # Wait for the app container healthcheck to go green
+            echo "Waiting for app container health..."
+            ATTEMPTS=30
+            until [ "$ATTEMPTS" -eq 0 ]; do
+              APP_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' sisg-platform 2>/dev/null || true)
+              if [ "$APP_HEALTH" = "healthy" ]; then
+                break
+              fi
+              if [ "$APP_HEALTH" = "unhealthy" ] || [ "$APP_HEALTH" = "exited" ]; then
+                echo "App container failed health checks: $APP_HEALTH"
+                docker logs --tail 200 sisg-platform || true
+                exit 1
+              fi
+              ATTEMPTS=$((ATTEMPTS - 1))
+              sleep 5
+            done
+
+            APP_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' sisg-platform 2>/dev/null || true)
+            [ "$APP_HEALTH" = "healthy" ] || {
+              echo "App container did not become healthy in time: $APP_HEALTH"
+              docker logs --tail 200 sisg-platform || true
+              exit 1
+            }
+
+            # Verify nginx config and TLS assets are present
+            test -f /etc/letsencrypt/live/sentinelintegratedgroup.com/fullchain.pem
+            test -f /etc/letsencrypt/live/sentinelintegratedgroup.com/privkey.pem
+            docker exec sisg-nginx nginx -t
+
+            # Verify deployment via HTTPS and redirect behavior
             echo "Running health checks..."
-            curl -sf --max-time 10 http://localhost/api/health | grep -q '"status":"ok"' || exit 1
+            curl -fsS --max-time 15 --resolve sentinelintegratedgroup.com:443:127.0.0.1 https://sentinelintegratedgroup.com/api/health | grep -q '"status":"ok"'
+            curl -fsS --max-time 15 --resolve www.sentinelintegratedgroup.com:443:127.0.0.1 https://www.sentinelintegratedgroup.com/api/health | grep -q '"status":"ok"'
+            curl -fsSI --max-time 15 -H 'Host: sentinelintegratedgroup.com' http://127.0.0.1 | grep -qi '^location: https://sentinelintegratedgroup.com/'
 
             # Clean up old images to save disk space
             docker image prune -f

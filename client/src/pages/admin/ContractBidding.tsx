@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Plus, X, RefreshCw, Search, ExternalLink, ChevronDown, ChevronUp, Zap, Target, Clock, Shield, FileText, TrendingUp, Bell, CheckCircle2, AlertTriangle, ArrowRight, MapPin, Building2, User, Phone, Mail, Clipboard, BookOpen, Award, Briefcase, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import TaskModal, { TaskModalData } from "@/components/modals/TaskModal";
@@ -126,12 +126,12 @@ interface DailyDigest {
 // ANIMATION VARIANTS
 // ============================================================
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
 };
 
-const staggerItem = {
+const staggerItem: Variants = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } },
 };
@@ -476,7 +476,7 @@ export default function ContractBidding() {
       } catch { /* silent */ }
     }
     setComplianceModalOpen(false);
-    toast.success("Compliance item updated", { description: name });
+    toast.success("Compliance item updated", { description: complianceModalTarget?.name || data.itemKey });
   };
 
   const openNextStepModal = (stepName: string, key: string, index: number) => {
@@ -896,7 +896,7 @@ export default function ContractBidding() {
     .filter((o) => {
       if (filterDeadlineRange === "all") return true;
       const days = o.responseDeadline ? Math.ceil((new Date(o.responseDeadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
-      if (days === null) return filterDeadlineRange === "all";
+      if (days === null) return true;
       const maxDays = { "7d": 7, "14d": 14, "30d": 30, "60d": 60 }[filterDeadlineRange];
       return days >= 0 && days <= maxDays;
     })

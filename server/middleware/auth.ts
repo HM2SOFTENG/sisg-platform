@@ -64,18 +64,18 @@ setInterval(() => {
   const now = Date.now();
 
   // Clean up expired tokens
-  for (const [token, { createdAt }] of tokens.entries()) {
+  Array.from(tokens.entries()).forEach(([token, { createdAt }]) => {
     if (isTokenExpired(createdAt)) {
       tokens.delete(token);
     }
-  }
+  });
 
   // Clean up stale rate limit entries
-  for (const [ip, { resetAt }] of rateLimitMap.entries()) {
+  Array.from(rateLimitMap.entries()).forEach(([ip, { resetAt }]) => {
     if (now > resetAt) {
       rateLimitMap.delete(ip);
     }
-  }
+  });
 }, CLEANUP_INTERVAL_MS);
 
 export function adminAuth(req: Request, res: Response, next: NextFunction) {

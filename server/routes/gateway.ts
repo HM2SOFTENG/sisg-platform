@@ -53,9 +53,9 @@ function setCache(key: string, data: any, ttlMs: number): void {
   // Prevent unbounded cache growth
   if (responseCache.size > 50) {
     const now = Date.now();
-    for (const [k, v] of responseCache) {
+    Array.from(responseCache.entries()).forEach(([k, v]) => {
       if (now >= v.expiresAt) responseCache.delete(k);
-    }
+    });
   }
 }
 

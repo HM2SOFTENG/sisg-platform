@@ -5,7 +5,7 @@ import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
+const DATA_DIR = path.resolve(process.cwd(), "data");
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -29,15 +29,20 @@ function writeCollection<T = any>(collection: string, data: T[]): void {
   fs.writeFileSync(getFilePath(collection), JSON.stringify(data, null, 2));
 }
 
-function addItem<T extends { id?: string }>(collection: string, item: T): T & { id: string } {
+type StorageRecord = {
+  id?: string;
+  [key: string]: any;
+};
+
+function addItem<T extends StorageRecord>(collection: string, item: T): T & { id: string; createdAt: string } {
   const items = readCollection(collection);
   const newItem = { ...item, id: item.id || crypto.randomUUID(), createdAt: new Date().toISOString() };
   items.push(newItem);
   writeCollection(collection, items);
-  return newItem as T & { id: string };
+  return newItem as T & { id: string; createdAt: string };
 }
 
-function updateItem<T extends { id: string }>(collection: string, id: string, updates: Partial<T>): T | null {
+function updateItem<T extends StorageRecord>(collection: string, id: string, updates: Partial<T>): T | null {
   const items = readCollection<any>(collection);
   const index = items.findIndex((item: any) => item.id === id);
   if (index === -1) return null;

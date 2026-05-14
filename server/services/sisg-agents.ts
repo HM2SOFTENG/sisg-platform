@@ -185,7 +185,7 @@ const AGENT_DEFINITIONS: Omit<SisgAgent, "id" | "lastRun" | "nextRun" | "lastRes
 // --- SCHEDULER STATE ---
 
 let schedulerRunning = false;
-let schedulerInterval: NodeJS.Timer | null = null;
+let schedulerInterval: NodeJS.Timeout | null = null;
 const scheduledAgents = new Map<string, { lastRun: number; nextRun: number }>();
 
 // --- HELPER FUNCTIONS ---

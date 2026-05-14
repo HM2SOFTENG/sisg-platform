@@ -26,6 +26,8 @@ interface BotStatus {
     directAvailable: boolean;
     directVerified: boolean;
     lastDirectSuccess: string;
+    wsClients?: number;
+    sseClients?: number;
     activeConnection: {
       url: string;
       verifiedAt: string;
@@ -208,7 +210,7 @@ export default function ClawBotCenter() {
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const activityFeedRef = useRef<HTMLDivElement>(null);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
-  const activityScrollRef = useRef<HTMLDivElement>(null);
+  const activityScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Dashboard layout state
   const [cardOrder, setCardOrder] = useState<string[]>([
@@ -1070,7 +1072,7 @@ function KanbanBoard({
     { key: "failed", label: "Failed", count: tasksByStatus.failed.length },
   ];
 
-  const handleDragStart = (taskId: string, e: React.DragEvent) => {
+  const handleDragStart = (taskId: string, e: React.DragEvent<HTMLDivElement>) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = "move";
   };
@@ -1130,7 +1132,7 @@ function KanbanBoard({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     draggable
-                    onDragStart={(e) => handleDragStart(task.id, e)}
+                    onDragStartCapture={(e) => handleDragStart(task.id, e)}
                     className={`p-3 border border-[var(--border)] bg-[var(--card)] cursor-move hover:bg-[var(--border)]/50 transition-colors ${
                       draggedTaskId === task.id ? "opacity-50" : ""
                     }`}
@@ -1291,7 +1293,7 @@ function ActivityPanel({
   events: ActivityEvent[];
   logFilter: string;
   onFilterChange: (filter: string) => void;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [jumpToLatestVisible, setJumpToLatestVisible] = useState(false);
 

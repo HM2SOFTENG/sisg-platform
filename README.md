@@ -30,6 +30,10 @@ pnpm dev
 # Type checking
 pnpm check
 
+# Full local admin/server run with local-only env vars
+pnpm build
+pnpm start:local
+
 # Format code
 pnpm format
 ```
@@ -65,6 +69,13 @@ Copy `.env.example` to `.env.production` and configure:
 ```bash
 cp .env.example .env.production
 # Edit .env.production with production values
+```
+
+For local-only admin login and test config, create `.env.local` (gitignored):
+
+```bash
+ADMIN_PIN=your-local-admin-pin
+PORT=3001
 ```
 
 ## GitHub Actions Deployment

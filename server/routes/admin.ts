@@ -18,6 +18,50 @@ router.post("/api/admin/login", loginHandler);
 router.post("/api/admin/logout", logoutHandler);
 router.get("/api/admin/verify", verifyHandler);
 
+router.get("/api/public/projects", async (_req: Request, res: Response) => {
+  try {
+    const projects = (storage.getCollection("projects") || []).map((project: any) => ({
+      id: project.id,
+      name: project.name || project.title || "Untitled Project",
+      title: project.title || project.name || "Untitled Project",
+      client: project.client || project.customer || "Confidential Client",
+      status: project.status || "Active",
+      priority: project.priority || null,
+      budget: project.budget || project.value || null,
+      team: project.team || project.teamSize || null,
+      due: project.due || project.endDate || null,
+      progress: typeof project.progress === "number" ? project.progress : 0,
+      color: project.color || null,
+      description: project.description || project.summary || "",
+      summary: project.summary || project.description || "",
+      capabilities: project.capabilities || project.services || [],
+    }));
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch public projects" });
+  }
+});
+
+router.get("/api/public/team", async (_req: Request, res: Response) => {
+  try {
+    const team = (storage.getCollection("team") || []).map((member: any) => ({
+      id: member.id,
+      name: member.name || member.displayName || "Unnamed Team Member",
+      role: member.role || member.position || "Team Member",
+      dept: member.dept || member.department || "Operations",
+      clearance: member.clearance || null,
+      utilization: typeof member.utilization === "number" ? member.utilization : 0,
+      color: member.color || null,
+      initials: member.initials || null,
+      bio: member.bio || member.summary || "",
+      certifications: member.certifications || member.skills || [],
+    }));
+    res.json(team);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch public team" });
+  }
+});
+
 // ============================================================================
 // PROTECTED ROUTES (Admin Auth Required)
 // ============================================================================
@@ -200,9 +244,9 @@ router.post("/api/admin/contracts", adminAuth, async (req: Request, res: Respons
     storage.addToCollection("contracts", contract);
 
     // Slack notification
-    await slack.notify(
-      `New contract created: ${contract.name || "Unnamed"} - $${contract.value || 0}`
-    );
+    await slack.notify("activity", {
+      text: `New contract created: ${contract.name || "Unnamed"} - $${contract.value || 0}`,
+    });
 
     res.status(201).json(contract);
   } catch (error) {
@@ -246,9 +290,9 @@ router.put(
 
       // Slack notification for status change
       if (oldContract?.status !== updated.status) {
-        await slack.notify(
-          `Contract status changed: ${updated.name || "Unnamed"} - ${oldContract?.status} → ${updated.status}`
-        );
+        await slack.notify("activity", {
+          text: `Contract status changed: ${updated.name || "Unnamed"} - ${oldContract?.status} → ${updated.status}`,
+        });
       }
 
       res.json(updated);
@@ -369,9 +413,9 @@ router.post("/api/admin/team", adminAuth, async (req: Request, res: Response) =>
     storage.addToCollection("team", member);
 
     // Slack notification
-    await slack.notify(
-      `New team member added: ${member.name || "Unnamed"} - ${member.role || "Unknown role"}`
-    );
+    await slack.notify("activity", {
+      text: `New team member added: ${member.name || "Unnamed"} - ${member.role || "Unknown role"}`,
+    });
 
     res.status(201).json(member);
   } catch (error) {
@@ -595,9 +639,9 @@ router.post(
       storage.addToCollection("partnerships", partnership);
 
       // Slack notification
-      await slack.notify(
-        `New partnership created: ${partnership.partnerName || "Unnamed"}`
-      );
+      await slack.notify("activity", {
+        text: `New partnership created: ${partnership.partnerName || "Unnamed"}`,
+      });
 
       res.status(201).json(partnership);
     } catch (error) {

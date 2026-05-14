@@ -209,13 +209,18 @@ async function gatewayFetch<T = any>(
   const baseUrl = "/api/admin/gateway";
   const url = `${baseUrl}${endpoint}`;
 
-  const headers: HeadersInit = {
+  const headers = new Headers({
     "Content-Type": "application/json",
-    ...options.headers,
-  };
+  });
+
+  if (options.headers) {
+    new Headers(options.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
 
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(url, {

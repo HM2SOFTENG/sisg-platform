@@ -11,6 +11,7 @@ import agentsRouter from "./routes/sisg-agents.js";
 import gatewayRouter from "./routes/gateway.js";
 import messagesRouter from "./routes/messages.js";
 import { sisgAgents } from "./services/sisg-agents.js";
+import { ensurePublicContentSeeds } from "./services/public-content-seeds.js";
 import { storage } from "./services/storage.js";
 import { ensureBootstrapAdmin } from "./services/auth-store.js";
 import { createRateLimit } from "./middleware/rate-limit.js";
@@ -211,6 +212,12 @@ async function startServer() {
       await ensureBootstrapAdmin();
     } catch (error) {
       console.error("Failed to initialize auth bootstrap:", error);
+    }
+
+    try {
+      ensurePublicContentSeeds();
+    } catch (error) {
+      console.error("Failed to initialize public content seeds:", error);
     }
 
     // Initialize SISG business agents and start scheduler

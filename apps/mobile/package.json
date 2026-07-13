@@ -1,0 +1,31 @@
+{
+  "name": "@sisg/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "ios:sim": "expo start --ios",
+    "ios:local": "sh -c 'EXPO_PUBLIC_API_BASE_URL=http://localhost:${API_PORT:-3010} expo start --ios'",
+    "web": "expo start --web",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sisg/api-client": "workspace:*",
+    "@sisg/types": "workspace:*",
+    "@sisg/ui-tokens": "workspace:*",
+    "@sisg/utils": "workspace:*",
+    "expo": "~53.0.0",
+    "expo-constants": "~17.1.8",
+    "expo-router": "~5.1.11",
+    "expo-secure-store": "~14.2.3",
+    "react": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1"
+  }
+}

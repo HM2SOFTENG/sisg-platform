@@ -28,6 +28,7 @@ interface FinancialData {
   netProfit?: number;
   profitMargin?: number;
   monthlyRevenue?: { month: string; revenue: number }[];
+  monthlyData?: { month: string; revenue: number; expenses?: number }[];
   contractsByStatus?: Record<string, number>;
 }
 
@@ -51,6 +52,12 @@ export default function Financials() {
     setLoading(true);
     try {
       const token = localStorage.getItem("sisg_admin_token");
+      if (!token) {
+        toast.error("Authentication token not found");
+        setFinancialData(null);
+        return;
+      }
+
       const response = await fetch("/api/admin/financials", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -133,7 +140,10 @@ export default function Financials() {
     return null;
   };
 
-  const monthlyRevenue = financialData?.monthlyRevenue ?? [];
+  const monthlyRevenue =
+    financialData?.monthlyRevenue ??
+    financialData?.monthlyData?.map(({ month, revenue }) => ({ month, revenue })) ??
+    [];
   const contractsByStatus = financialData?.contractsByStatus ?? {};
   const contractStatusData = Object.entries(contractsByStatus).map(([name, value]) => ({
     name,

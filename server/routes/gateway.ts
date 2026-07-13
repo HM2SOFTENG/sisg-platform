@@ -1,7 +1,8 @@
 import express, { Router, Request, Response } from "express";
 import http from "http";
 import https from "https";
-import { adminAuth } from "../middleware/auth.js";
+import { adminAuth, requireRoles } from "../middleware/auth.js";
+import { auditAdminAction } from "../services/security-audit.js";
 
 const router: Router = express.Router();
 
@@ -150,7 +151,7 @@ async function proxyRequest(
 // =============================================================================
 
 // ---- EXECUTE ----
-router.post("/api/admin/gateway/execute", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/gateway/execute", adminAuth, requireRoles("admin"), auditAdminAction("gateway.execute"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("POST", "/api/execute", req.body, undefined, {
       timeoutMs: 60_000, // execute can take longer
@@ -162,7 +163,7 @@ router.post("/api/admin/gateway/execute", adminAuth, async (req: Request, res: R
 });
 
 // ---- CHAT ----
-router.post("/api/admin/gateway/chat", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/gateway/chat", adminAuth, requireRoles("admin"), auditAdminAction("gateway.chat"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("POST", "/api/chat", req.body, undefined, {
       timeoutMs: 120_000, // chat/LLM responses can be slow
@@ -174,7 +175,7 @@ router.post("/api/admin/gateway/chat", adminAuth, async (req: Request, res: Resp
 });
 
 // ---- AGENTS RUN ----
-router.post("/api/admin/gateway/agents/run", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/gateway/agents/run", adminAuth, requireRoles("admin"), auditAdminAction("gateway.agents.run"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("POST", "/api/agents/run", req.body, undefined, {
       timeoutMs: 60_000,
@@ -186,7 +187,7 @@ router.post("/api/admin/gateway/agents/run", adminAuth, async (req: Request, res
 });
 
 // ---- AGENTS RUN SYNC ----
-router.post("/api/admin/gateway/agents/run/sync", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/gateway/agents/run/sync", adminAuth, requireRoles("admin"), auditAdminAction("gateway.agents.run_sync"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("POST", "/api/agents/run/sync", req.body, undefined, {
       timeoutMs: 180_000, // sync runs can take a while
@@ -198,7 +199,7 @@ router.post("/api/admin/gateway/agents/run/sync", adminAuth, async (req: Request
 });
 
 // ---- HEALTH (cached 10s) ----
-router.get("/api/admin/gateway/health", adminAuth, async (_req: Request, res: Response) => {
+router.get("/api/admin/gateway/health", adminAuth, requireRoles("admin"), async (_req: Request, res: Response) => {
   try {
     const result = await proxyRequest("GET", "/health", undefined, undefined, {
       timeoutMs: 5_000,
@@ -211,7 +212,7 @@ router.get("/api/admin/gateway/health", adminAuth, async (_req: Request, res: Re
 });
 
 // ---- STATUS (cached 8s) ----
-router.get("/api/admin/gateway/status", adminAuth, async (_req: Request, res: Response) => {
+router.get("/api/admin/gateway/status", adminAuth, requireRoles("admin"), async (_req: Request, res: Response) => {
   try {
     const result = await proxyRequest("GET", "/status", undefined, undefined, {
       timeoutMs: 8_000,
@@ -224,7 +225,7 @@ router.get("/api/admin/gateway/status", adminAuth, async (_req: Request, res: Re
 });
 
 // ---- TASKS (cached 3s) ----
-router.get("/api/admin/gateway/tasks", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/gateway/tasks", adminAuth, requireRoles("admin"), async (req: Request, res: Response) => {
   try {
     const queryParams: Record<string, string> = {};
     if (req.query.status) queryParams.status = req.query.status as string;
@@ -241,7 +242,7 @@ router.get("/api/admin/gateway/tasks", adminAuth, async (req: Request, res: Resp
   }
 });
 
-router.get("/api/admin/gateway/tasks/:id", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/gateway/tasks/:id", adminAuth, requireRoles("admin"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("GET", `/api/tasks/${req.params.id}`, undefined, undefined, {
       timeoutMs: 10_000,
@@ -253,7 +254,7 @@ router.get("/api/admin/gateway/tasks/:id", adminAuth, async (req: Request, res: 
 });
 
 // ---- AUTOMATIONS (cached 5s) ----
-router.get("/api/admin/gateway/automations", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/gateway/automations", adminAuth, requireRoles("admin"), async (req: Request, res: Response) => {
   try {
     const queryParams: Record<string, string> = {};
     if (req.query.status) queryParams.status = req.query.status as string;
@@ -270,7 +271,7 @@ router.get("/api/admin/gateway/automations", adminAuth, async (req: Request, res
   }
 });
 
-router.post("/api/admin/gateway/automations", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/gateway/automations", adminAuth, requireRoles("admin"), auditAdminAction("gateway.automation.create"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("POST", "/api/automations", req.body, undefined, {
       timeoutMs: 15_000,
@@ -281,7 +282,7 @@ router.post("/api/admin/gateway/automations", adminAuth, async (req: Request, re
   }
 });
 
-router.patch("/api/admin/gateway/automations/:name", adminAuth, async (req: Request, res: Response) => {
+router.patch("/api/admin/gateway/automations/:name", adminAuth, requireRoles("admin"), auditAdminAction("gateway.automation.update"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("PATCH", `/api/automations/${req.params.name}`, req.body, undefined, {
       timeoutMs: 15_000,
@@ -292,7 +293,7 @@ router.patch("/api/admin/gateway/automations/:name", adminAuth, async (req: Requ
   }
 });
 
-router.delete("/api/admin/gateway/automations/:name", adminAuth, async (req: Request, res: Response) => {
+router.delete("/api/admin/gateway/automations/:name", adminAuth, requireRoles("admin"), auditAdminAction("gateway.automation.delete"), async (req: Request, res: Response) => {
   try {
     const result = await proxyRequest("DELETE", `/api/automations/${req.params.name}`, undefined, undefined, {
       timeoutMs: 15_000,

@@ -99,30 +99,54 @@ export default function Home() {
 
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [teamUtilization, setTeamUtilization] = useState<number | null>(null);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<string | null>(null);
+  const monthlyRevenue = null;
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchPublicStats = async () => {
       try {
-        const response = await fetch("/api/admin/stats");
-        if (response.ok) {
-          const data = await response.json();
-          if (data.stats && Array.isArray(data.stats)) {
-            setStats(data.stats);
-          }
-          if (data.teamUtilization !== undefined) {
-            setTeamUtilization(data.teamUtilization);
-          }
-          if (data.monthlyRevenue !== undefined) {
-            setMonthlyRevenue(data.monthlyRevenue);
-          }
+        const [projectsResponse, teamResponse] = await Promise.all([
+          fetch("/api/public/projects"),
+          fetch("/api/public/team"),
+        ]);
+
+        if (!projectsResponse.ok || !teamResponse.ok) {
+          return;
+        }
+
+        const [projects, team] = await Promise.all([
+          projectsResponse.json(),
+          teamResponse.json(),
+        ]);
+
+        const safeProjects = Array.isArray(projects) ? projects : [];
+        const safeTeam = Array.isArray(team) ? team : [];
+
+        if (safeProjects.length > 0 || safeTeam.length > 0) {
+          const activeProjects = safeProjects.filter((project) =>
+            ["active", "in progress"].includes(String(project?.status || "").toLowerCase())
+          ).length;
+          const certificationCount = new Set(
+            safeTeam.flatMap((member) => Array.isArray(member?.certifications) ? member.certifications : [])
+          ).size;
+
+          setStats([
+            { value: activeProjects || DEFAULT_STATS[0].value, suffix: "+", label: "Active Contracts", icon: FileCheck, color: "#0066ff" },
+            { value: safeTeam.length || DEFAULT_STATS[1].value, suffix: "+", label: "Team Members", icon: Users, color: "#00d4ff" },
+            { value: certificationCount || DEFAULT_STATS[2].value, suffix: "", label: "Certifications", icon: Award, color: "#00e5a0" },
+            DEFAULT_STATS[3],
+          ]);
+        }
+
+        if (safeTeam.length > 0) {
+          const utilizationTotal = safeTeam.reduce((sum, member) => sum + (typeof member?.utilization === "number" ? member.utilization : 0), 0);
+          setTeamUtilization(Math.round(utilizationTotal / safeTeam.length));
         }
       } catch (error) {
-        console.error("Error fetching stats:", error);
-        // Keep defaults on error
+        console.error("Error fetching public site stats:", error);
       }
     };
-    fetchStats();
+
+    void fetchPublicStats();
   }, []);
 
   return (

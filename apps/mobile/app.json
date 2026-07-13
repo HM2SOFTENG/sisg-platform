@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "SISG Mobile",
+    "slug": "sisg-mobile",
+    "scheme": "sisgmobile",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "SISG Mobile connects to local SISG API instances on your network during development and demo testing."
+      }
+    },
+    "android": {
+      "usesCleartextTraffic": true
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

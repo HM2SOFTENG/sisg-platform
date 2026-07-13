@@ -1,7 +1,8 @@
 import express, { Router, Request, Response } from "express";
 import crypto from "crypto";
-import { adminAuth } from "../middleware/auth.js";
+import { adminAuth, requireRoles } from "../middleware/auth.js";
 import { sisgAgents } from "../services/sisg-agents.js";
+import { auditAdminAction } from "../services/security-audit.js";
 
 const router: Router = express.Router();
 
@@ -16,7 +17,7 @@ const router: Router = express.Router();
  * POST /api/admin/agents/deploy-all
  * Deploy all agents in priority order
  */
-router.post("/api/admin/agents/deploy-all", adminAuth, async (_req: Request, res: Response) => {
+router.post("/api/admin/agents/deploy-all", adminAuth, requireRoles("admin"), auditAdminAction("agents.deploy_all"), async (_req: Request, res: Response) => {
   try {
     const agents = await sisgAgents.getAgents();
     const sorted = [...agents].sort((a, b) => a.priority - b.priority);
@@ -37,7 +38,7 @@ router.post("/api/admin/agents/deploy-all", adminAuth, async (_req: Request, res
  * POST /api/admin/agents/stop-all
  * Stop all deployed agents
  */
-router.post("/api/admin/agents/stop-all", adminAuth, async (_req: Request, res: Response) => {
+router.post("/api/admin/agents/stop-all", adminAuth, requireRoles("admin"), auditAdminAction("agents.stop_all"), async (_req: Request, res: Response) => {
   try {
     const agents = await sisgAgents.getAgents();
     let stopped = 0;
@@ -605,7 +606,7 @@ router.get("/api/admin/agents/:slug", adminAuth, async (req: Request, res: Respo
 /**
  * POST /api/admin/agents/:slug/deploy
  */
-router.post("/api/admin/agents/:slug/deploy", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/agents/:slug/deploy", adminAuth, requireRoles("admin"), auditAdminAction("agents.deploy"), async (req: Request, res: Response) => {
   try {
     const agent = await sisgAgents.deployAgent(req.params.slug);
     res.json({ success: true, data: agent, message: `${agent.name} deployed` });
@@ -618,7 +619,7 @@ router.post("/api/admin/agents/:slug/deploy", adminAuth, async (req: Request, re
 /**
  * POST /api/admin/agents/:slug/stop
  */
-router.post("/api/admin/agents/:slug/stop", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/agents/:slug/stop", adminAuth, requireRoles("admin"), auditAdminAction("agents.stop"), async (req: Request, res: Response) => {
   try {
     const agent = await sisgAgents.stopAgent(req.params.slug);
     res.json({ success: true, data: agent, message: `${agent.name} stopped` });
@@ -632,7 +633,7 @@ router.post("/api/admin/agents/:slug/stop", adminAuth, async (req: Request, res:
  * POST /api/admin/agents/:slug/run
  * Manually trigger an agent run
  */
-router.post("/api/admin/agents/:slug/run", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/agents/:slug/run", adminAuth, requireRoles("admin"), auditAdminAction("agents.run"), async (req: Request, res: Response) => {
   try {
     const run = await sisgAgents.runAgent(req.params.slug, "manual");
     res.status(201).json({ success: true, data: run, message: "Agent run triggered" });
@@ -645,7 +646,7 @@ router.post("/api/admin/agents/:slug/run", adminAuth, async (req: Request, res: 
 /**
  * PUT /api/admin/agents/:slug/config
  */
-router.put("/api/admin/agents/:slug/config", adminAuth, async (req: Request, res: Response) => {
+router.put("/api/admin/agents/:slug/config", adminAuth, requireRoles("admin"), auditAdminAction("agents.config.update"), async (req: Request, res: Response) => {
   try {
     if (!req.body || typeof req.body !== "object") {
       return res.status(400).json({ success: false, error: "Request body must be a JSON object" });
@@ -661,7 +662,7 @@ router.put("/api/admin/agents/:slug/config", adminAuth, async (req: Request, res
 /**
  * PUT /api/admin/agents/:slug/schedule
  */
-router.put("/api/admin/agents/:slug/schedule", adminAuth, async (req: Request, res: Response) => {
+router.put("/api/admin/agents/:slug/schedule", adminAuth, requireRoles("admin"), auditAdminAction("agents.schedule.update"), async (req: Request, res: Response) => {
   try {
     const { schedule } = req.body;
     if (!schedule || typeof schedule !== "string") {

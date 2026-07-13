@@ -1,0 +1,424 @@
+{
+  "version": 1,
+  "graph_id": "sisg-native-app-rollout",
+  "title": "SISG native app rollout",
+  "goal": "Deliver a production-capable native/mobile foundation backed by managed infrastructure and shared contracts.",
+  "owner": "",
+  "area": "",
+  "created_at": "2026-05-14T22:18:22Z",
+  "updated_at": "2026-05-22T16:20:00Z",
+  "actions": [
+    {
+      "id": "act-001",
+      "title": "Define shared auth/session and dashboard contracts for web and mobile",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "main",
+      "depends_on": [],
+      "checkpoints": [],
+      "tags": [
+        "native",
+        "shared",
+        "auth"
+      ],
+      "notes": [],
+      "result": "Shared auth/session/dashboard contracts now live in workspace packages with typed schemas and API client helpers.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-14T22:18:23Z",
+      "updated_at": "2026-05-14T23:10:30Z",
+      "blockers": []
+    },
+    {
+      "id": "act-002",
+      "title": "Implement Expo auth shell and dashboard placeholder using shared packages",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "main",
+      "depends_on": [
+        "act-001"
+      ],
+      "checkpoints": [],
+      "tags": [
+        "native",
+        "mobile",
+        "expo"
+      ],
+      "notes": [],
+      "result": "Expo mobile shell now supports admin bootstrap login and dashboard summary fetch through shared SISG packages.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-14T22:18:23Z",
+      "updated_at": "2026-05-14T23:10:30Z",
+      "blockers": []
+    },
+    {
+      "id": "act-003",
+      "title": "Document architecture, handoff, and next backend milestones",
+      "description": "",
+      "status": "done",
+      "priority": 2,
+      "owner": "main",
+      "depends_on": [
+        "act-001",
+        "act-002"
+      ],
+      "checkpoints": [],
+      "tags": [
+        "docs",
+        "handoff"
+      ],
+      "notes": [],
+      "result": "Architecture, migration matrix, security audit, and auth/session handoff docs are now in place and updated through the persisted session rollout.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-14T22:18:23Z",
+      "updated_at": "2026-05-18T20:01:16Z",
+      "blockers": []
+    },
+    {
+      "id": "act-004",
+      "title": "Build native app shell, navigation, and shared mobile primitives",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "main",
+      "depends_on": [],
+      "checkpoints": [],
+      "tags": [
+        "mobile",
+        "demo",
+        "shell"
+      ],
+      "notes": [],
+      "result": "The Expo shell, tab navigation, shared tokens, and authenticated route groups are now in place with persisted operator session restore.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-18T20:01:16Z",
+      "updated_at": "2026-05-22T16:20:00Z",
+      "blockers": []
+    },
+    {
+      "id": "act-005",
+      "title": "Implement contracts and projects demo surfaces",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "worker-contracts",
+      "depends_on": [],
+      "checkpoints": [],
+      "tags": [
+        "mobile",
+        "demo",
+        "contracts",
+        "projects"
+      ],
+      "notes": [],
+      "result": "The work tab now loads live contracts and projects, maps current SISG API data into mobile cards, and handles loading, empty, and error states cleanly.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-18T20:01:16Z",
+      "updated_at": "2026-05-22T16:20:00Z",
+      "blockers": []
+    },
+    {
+      "id": "act-006",
+      "title": "Implement inbox, agents, and profile demo surfaces",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "worker-ops",
+      "depends_on": [],
+      "checkpoints": [],
+      "tags": [
+        "mobile",
+        "demo",
+        "inbox",
+        "agents",
+        "profile"
+      ],
+      "notes": [],
+      "result": "Inbox, agents, home, and profile surfaces now run against live SISG data and authenticated operator sessions instead of demo-only routes.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-18T20:01:16Z",
+      "updated_at": "2026-05-22T16:20:00Z",
+      "blockers": []
+    },
+    {
+      "id": "act-007",
+      "title": "Map current API/domain data into demo-ready mobile view models",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "explorer-api",
+      "depends_on": [],
+      "checkpoints": [],
+      "tags": [
+        "mobile",
+        "api",
+        "data"
+      ],
+      "notes": [],
+      "result": "Mobile data adapters now normalize dashboard, contracts, projects, messaging, agent telemetry, and operator account data into mobile-safe view models.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-18T20:01:16Z",
+      "updated_at": "2026-05-22T16:20:00Z",
+      "blockers": []
+    },
+    {
+      "id": "act-008",
+      "title": "Integrate demo surfaces, polish states, and verify production-demo flow",
+      "description": "",
+      "status": "done",
+      "priority": 1,
+      "owner": "main",
+      "depends_on": [
+        "act-004",
+        "act-005",
+        "act-006",
+        "act-007"
+      ],
+      "checkpoints": [],
+      "tags": [
+        "mobile",
+        "demo",
+        "polish"
+      ],
+      "notes": [
+        "Main-thread integration completed after parallel native work landed across home, inbox, and agents."
+      ],
+      "result": "Integrated the native surfaces, reconciled the rollout state with shipped code, and re-verified the repo with pnpm check and pnpm check:workspaces.",
+      "lease_expires_at": "",
+      "created_at": "2026-05-18T20:01:16Z",
+      "updated_at": "2026-05-22T16:20:00Z",
+      "blockers": []
+    }
+  ],
+  "checkpoints": [],
+  "activity": [
+    {
+      "timestamp": "2026-05-14T22:18:22Z",
+      "type": "graph.init",
+      "details": {
+        "title": "SISG native app rollout",
+        "owner": ""
+      }
+    },
+    {
+      "timestamp": "2026-05-14T22:18:23Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-001",
+        "title": "Define shared auth/session and dashboard contracts for web and mobile"
+      }
+    },
+    {
+      "timestamp": "2026-05-14T22:18:23Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-002",
+        "title": "Implement Expo auth shell and dashboard placeholder using shared packages"
+      }
+    },
+    {
+      "timestamp": "2026-05-14T22:18:23Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-003",
+        "title": "Document architecture, handoff, and next backend milestones"
+      }
+    },
+    {
+      "timestamp": "2026-05-14T23:10:30Z",
+      "type": "action.update",
+      "details": {
+        "id": "act-001",
+        "before": {
+          "id": "act-001",
+          "title": "Define shared auth/session and dashboard contracts for web and mobile",
+          "description": "",
+          "status": "pending",
+          "priority": 1,
+          "owner": "main",
+          "depends_on": [],
+          "checkpoints": [],
+          "tags": [
+            "native",
+            "shared",
+            "auth"
+          ],
+          "notes": [],
+          "result": "",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-14T22:18:23Z",
+          "blockers": []
+        },
+        "after": {
+          "id": "act-001",
+          "title": "Define shared auth/session and dashboard contracts for web and mobile",
+          "description": "",
+          "status": "done",
+          "priority": 1,
+          "owner": "main",
+          "depends_on": [],
+          "checkpoints": [],
+          "tags": [
+            "native",
+            "shared",
+            "auth"
+          ],
+          "notes": [],
+          "result": "Shared auth/session/dashboard contracts now live in workspace packages with typed schemas and API client helpers.",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-14T23:10:30Z",
+          "blockers": []
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-14T23:10:30Z",
+      "type": "action.update",
+      "details": {
+        "id": "act-002",
+        "before": {
+          "id": "act-002",
+          "title": "Implement Expo auth shell and dashboard placeholder using shared packages",
+          "description": "",
+          "status": "pending",
+          "priority": 1,
+          "owner": "main",
+          "depends_on": [
+            "act-001"
+          ],
+          "checkpoints": [],
+          "tags": [
+            "native",
+            "mobile",
+            "expo"
+          ],
+          "notes": [],
+          "result": "",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-14T22:18:23Z",
+          "blockers": []
+        },
+        "after": {
+          "id": "act-002",
+          "title": "Implement Expo auth shell and dashboard placeholder using shared packages",
+          "description": "",
+          "status": "done",
+          "priority": 1,
+          "owner": "main",
+          "depends_on": [
+            "act-001"
+          ],
+          "checkpoints": [],
+          "tags": [
+            "native",
+            "mobile",
+            "expo"
+          ],
+          "notes": [],
+          "result": "Expo mobile shell now supports admin bootstrap login and dashboard summary fetch through shared SISG packages.",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-14T23:10:30Z",
+          "blockers": []
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.update",
+      "details": {
+        "id": "act-003",
+        "before": {
+          "id": "act-003",
+          "title": "Document architecture, handoff, and next backend milestones",
+          "description": "",
+          "status": "pending",
+          "priority": 2,
+          "owner": "main",
+          "depends_on": [
+            "act-001",
+            "act-002"
+          ],
+          "checkpoints": [],
+          "tags": [
+            "docs",
+            "handoff"
+          ],
+          "notes": [],
+          "result": "",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-14T22:18:23Z",
+          "blockers": []
+        },
+        "after": {
+          "id": "act-003",
+          "title": "Document architecture, handoff, and next backend milestones",
+          "description": "",
+          "status": "done",
+          "priority": 2,
+          "owner": "main",
+          "depends_on": [
+            "act-001",
+            "act-002"
+          ],
+          "checkpoints": [],
+          "tags": [
+            "docs",
+            "handoff"
+          ],
+          "notes": [],
+          "result": "Architecture, migration matrix, security audit, and auth/session handoff docs are now in place and updated through the persisted session rollout.",
+          "lease_expires_at": "",
+          "created_at": "2026-05-14T22:18:23Z",
+          "updated_at": "2026-05-18T20:01:16Z",
+          "blockers": []
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-004",
+        "title": "Build native app shell, navigation, and shared mobile primitives"
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-005",
+        "title": "Implement contracts and projects demo surfaces"
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-006",
+        "title": "Implement inbox, agents, and profile demo surfaces"
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-007",
+        "title": "Map current API/domain data into demo-ready mobile view models"
+      }
+    },
+    {
+      "timestamp": "2026-05-18T20:01:16Z",
+      "type": "action.add",
+      "details": {
+        "id": "act-008",
+        "title": "Integrate demo surfaces, polish states, and verify production-demo flow"
+      }
+    }
+  ]
+}

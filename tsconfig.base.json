@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@sisg/types": ["packages/types/src/index.ts"],
+      "@sisg/schemas": ["packages/schemas/src/index.ts"],
+      "@sisg/api-client": ["packages/api-client/src/index.ts"],
+      "@sisg/ui-tokens": ["packages/ui-tokens/src/index.ts"],
+      "@sisg/utils": ["packages/utils/src/index.ts"],
+      "@/*": ["client/src/*"],
+      "@shared/*": ["shared/*"]
+    }
+  }
+}

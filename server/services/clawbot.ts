@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { WebSocket } from "ws";
 import { storage } from "./storage.js";
 import { slack } from "./slack.js";
+import { getClawbotApiKey } from "./clawbot-auth.js";
 
 // =============================================================================
 // ClawBot Command Center — Service Layer
@@ -70,7 +71,6 @@ export interface BotCommand {
 
 // Bot connection config
 const BOT_DIRECT_URL = process.env.CLAWBOT_URL || "http://localhost:4000";
-const BOT_API_KEY = process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026";
 const SLACK_BOT_CHANNEL = "software-development"; // fallback channel
 
 // Verified connection state
@@ -133,7 +133,7 @@ async function tryDirect<T>(path: string, method: "get" | "post" = "get", data?:
       method,
       url: `${baseUrl}${path}`,
       data,
-      headers: { "X-API-Key": BOT_API_KEY, "Content-Type": "application/json" },
+      headers: { "X-API-Key": getClawbotApiKey(), "Content-Type": "application/json" },
       timeout: 5000,
     });
     lastDirectSuccess = Date.now();
@@ -381,7 +381,7 @@ export const clawbot = {
     // Challenge passed — now verify we can actually reach ClawBot
     try {
       const resp = await axios.get(`${url}/api/ping`, {
-        headers: { "X-API-Key": BOT_API_KEY },
+          headers: { "X-API-Key": getClawbotApiKey() },
         timeout: 5000,
       });
       if (resp.data?.pong !== true) {

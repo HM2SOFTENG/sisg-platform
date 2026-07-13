@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { motion, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Lock,
@@ -9,7 +9,6 @@ import {
   LogOut,
   AlertTriangle,
   CheckCircle,
-  Circle,
   Save,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -21,10 +20,29 @@ interface SystemInfo {
   uptime: string;
 }
 
-interface WebhookStatus {
-  name: string;
-  status: 'active' | 'inactive';
+interface AdminConfig {
+  companyName: string;
+  contactEmail: string;
+  timezone: string;
 }
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const defaultConfig: AdminConfig = {
+  companyName: 'SISG Platform',
+  contactEmail: 'admin@sisg.io',
+  timezone: 'UTC',
+};
+
+const defaultSystemInfo: SystemInfo = {
+  version: 'dev',
+  environment: 'development',
+  nodeVersion: 'unknown',
+  uptime: '0d 0h 0m',
+};
 
 const AdminSettings: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -32,56 +50,67 @@ const AdminSettings: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
-  const [companyName, setCompanyName] = useState('SISG Platform');
-  const [contactEmail, setContactEmail] = useState('admin@sisg.io');
-  const [timezone, setTimezone] = useState('UTC');
+  const [config, setConfig] = useState<AdminConfig>(defaultConfig);
   const [settingsMessage, setSettingsMessage] = useState('');
-
-  const [systemInfo, setSystemInfo] = useState<SystemInfo>({
-    version: '1.0.0',
-    environment: 'production',
-    nodeVersion: '18.0.0',
-    uptime: '45d 12h 34m',
-  });
-
-  const [webhookStatuses, setWebhookStatuses] = useState<WebhookStatus[]>([
-    { name: 'Alerts', status: 'active' },
-    { name: 'Forms', status: 'active' },
-    { name: 'Activity', status: 'inactive' },
-    { name: 'Deployments', status: 'active' },
-  ]);
-
-  const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo>(defaultSystemInfo);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
 
-  const token = localStorage.getItem('sisg_admin_token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('sisg_admin_token') : null;
 
-  // Fetch system info
   useEffect(() => {
-    const fetchSystemInfo = async () => {
+    const fetchPageData = async () => {
+      if (!token) {
+        return;
+      }
+
       try {
-        const response = await fetch('/api/admin/stats', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSystemInfo(data);
+        const [statsResponse, configResponse] = await Promise.all([
+          fetch('/api/admin/stats', {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch('/api/admin/config', {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json();
+          setSystemInfo({
+            version: stats.version || defaultSystemInfo.version,
+            environment: stats.environment || defaultSystemInfo.environment,
+            nodeVersion: stats.nodeVersion || defaultSystemInfo.nodeVersion,
+            uptime: stats.uptime || defaultSystemInfo.uptime,
+          });
+        }
+
+        if (configResponse.ok) {
+          const nextConfig = await configResponse.json();
+          setConfig({
+            companyName: nextConfig.companyName || defaultConfig.companyName,
+            contactEmail: nextConfig.contactEmail || defaultConfig.contactEmail,
+            timezone: nextConfig.timezone || defaultConfig.timezone,
+          });
         }
       } catch (error) {
-        console.error('Error fetching system info:', error);
+        console.error('Error fetching admin settings context:', error);
+        toast.error('Failed to load admin settings');
       }
     };
 
-    if (token) {
-      fetchSystemInfo();
-    }
+    void fetchPageData();
   }, [token]);
 
   const handleChangePassword = async () => {
     setPasswordError('');
     setPasswordMessage('');
+
+    if (!token) {
+      setPasswordError('Authentication token not found');
+      toast.error('Authentication token not found');
+      return;
+    }
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError('All fields are required');
@@ -101,6 +130,7 @@ const AdminSettings: React.FC = () => {
       return;
     }
 
+    setChangingPassword(true);
     try {
       const response = await fetch('/api/admin/password', {
         method: 'PUT',
@@ -114,26 +144,37 @@ const AdminSettings: React.FC = () => {
         }),
       });
 
+      const payload = await response.json().catch(() => null);
+
       if (response.ok) {
-        setPasswordMessage('Password changed successfully');
+        setPasswordMessage('Password changed successfully. You may need to sign in again on other devices.');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
         toast.success('Password changed successfully');
       } else {
-        setPasswordError('Current password is incorrect');
-        toast.error('Current password is incorrect');
+        const errorMessage = payload?.error || 'Failed to change password';
+        setPasswordError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       setPasswordError('Error changing password');
       toast.error('Error changing password');
       console.error(error);
+    } finally {
+      setChangingPassword(false);
     }
   };
 
   const handleSaveSettings = async () => {
     setSettingsMessage('');
 
+    if (!token) {
+      toast.error('Authentication token not found');
+      return;
+    }
+
+    setSavingSettings(true);
     try {
       const response = await fetch('/api/admin/config', {
         method: 'PUT',
@@ -141,92 +182,60 @@ const AdminSettings: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          companyName,
-          contactEmail,
-          timezone,
-        }),
+        body: JSON.stringify(config),
       });
 
-      if (response.ok) {
+      const payload = await response.json().catch(() => null);
+
+      if (response.ok && payload) {
+        setConfig({
+          companyName: payload.companyName || config.companyName,
+          contactEmail: payload.contactEmail || config.contactEmail,
+          timezone: payload.timezone || config.timezone,
+        });
         setSettingsMessage('Settings saved successfully');
         toast.success('Settings saved successfully');
       } else {
-        toast.error('Failed to save settings');
+        toast.error(payload?.error || 'Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Error saving settings');
-    }
-  };
-
-  const handleTestWebhook = async (webhookName: string) => {
-    setTestingWebhook(webhookName);
-
-    try {
-      const response = await fetch(`/api/admin/webhooks/${webhookName}/test`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const updatedStatus = webhookStatuses.map(w =>
-          w.name === webhookName ? { ...w, status: 'active' as const } : w
-        );
-        setWebhookStatuses(updatedStatus);
-        toast.success(`${webhookName} webhook test successful`);
-      } else {
-        toast.error(`Failed to test ${webhookName} webhook`);
-      }
-    } catch (error) {
-      console.error('Error testing webhook:', error);
-      toast.error('Error testing webhook');
     } finally {
-      setTestingWebhook(null);
+      setSavingSettings(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('sisg_admin_token');
-    window.location.href = '/login';
-  };
-
-  const handleClearData = async () => {
+  const handleLogout = async () => {
     try {
-      const response = await fetch('/api/admin/data/clear', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        setShowClearDataConfirm(false);
-        toast.success('All data cleared successfully');
-      } else {
-        toast.error('Failed to clear data');
+      if (token) {
+        await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
       }
     } catch (error) {
-      console.error('Error clearing data:', error);
-      toast.error('Error clearing data');
+      console.error('Error logging out:', error);
+    } finally {
+      localStorage.removeItem('sisg_admin_token');
+      window.location.href = '/login';
     }
   };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div>
           <h1 className="font-sora text-xl sm:text-3xl font-bold mb-2">Admin Settings</h1>
-          <p className="text-gray-400">Manage system configuration and security</p>
+          <p className="text-gray-400">Manage system configuration and operator security.</p>
         </div>
 
-        {/* Password Management */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
           className="tech-card"
         >
           <div className="flex items-center gap-3 mb-6">
@@ -297,17 +306,18 @@ const AdminSettings: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleChangePassword}
-              className="w-full bg-[#ff3b3b] hover:bg-[#ff3b3b]/90 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
+              disabled={changingPassword}
+              className="w-full bg-[#ff3b3b] hover:bg-[#ff3b3b]/90 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all disabled:opacity-50"
             >
-              Change Password
+              {changingPassword ? 'Updating Password...' : 'Change Password'}
             </motion.button>
           </div>
         </motion.div>
 
-        {/* Slack Integration */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
           transition={{ delay: 0.1 }}
           className="tech-card"
         >
@@ -316,48 +326,23 @@ const AdminSettings: React.FC = () => {
             <h2 className="font-sora text-xl font-bold">Slack Integration</h2>
           </div>
 
-          <div className="space-y-3">
-            {webhookStatuses.map((webhook, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700"
-              >
-                <div className="flex items-center gap-3">
-                  <motion.div animate={{ scale: 1 }}>
-                    {webhook.status === 'active' ? (
-                      <CheckCircle className="w-5 h-5 text-[#00e5a0]" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-gray-500" />
-                    )}
-                  </motion.div>
-                  <div>
-                    <p className="font-mono text-sm font-semibold text-white">
-                      {webhook.name} Webhook
-                    </p>
-                    <p className="font-mono text-xs text-gray-400">
-                      {webhook.status === 'active' ? 'Connected' : 'Disconnected'}
-                    </p>
-                  </div>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleTestWebhook(webhook.name)}
-                  disabled={testingWebhook === webhook.name}
-                  className="px-4 py-2 bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-black rounded-lg font-mono text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  {testingWebhook === webhook.name ? 'Testing...' : 'Test'}
-                </motion.button>
-              </div>
-            ))}
+          <div className="rounded-lg border border-gray-700 bg-gray-800/70 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-white">
+              <AlertTriangle className="w-4 h-4 text-[#ffb800]" />
+              <span className="font-mono text-sm font-semibold">Dashboard test controls are not shipped</span>
+            </div>
+            <p className="text-sm text-gray-400">
+              Webhook routing is still managed outside this admin route surface. The previous per-webhook
+              test buttons were calling missing backend endpoints, so they have been intentionally
+              de-scoped until a real status and test API exists.
+            </p>
           </div>
         </motion.div>
 
-        {/* Site Configuration */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
           transition={{ delay: 0.2 }}
           className="tech-card"
         >
@@ -373,8 +358,8 @@ const AdminSettings: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
+                value={config.companyName}
+                onChange={e => setConfig(current => ({ ...current, companyName: e.target.value }))}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#8b5cf6]"
               />
             </div>
@@ -385,8 +370,8 @@ const AdminSettings: React.FC = () => {
               </label>
               <input
                 type="email"
-                value={contactEmail}
-                onChange={e => setContactEmail(e.target.value)}
+                value={config.contactEmail}
+                onChange={e => setConfig(current => ({ ...current, contactEmail: e.target.value }))}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#8b5cf6]"
               />
             </div>
@@ -396,8 +381,8 @@ const AdminSettings: React.FC = () => {
                 Timezone
               </label>
               <select
-                value={timezone}
-                onChange={e => setTimezone(e.target.value)}
+                value={config.timezone}
+                onChange={e => setConfig(current => ({ ...current, timezone: e.target.value }))}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#8b5cf6]"
               >
                 <option value="UTC">UTC</option>
@@ -423,18 +408,19 @@ const AdminSettings: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleSaveSettings}
-              className="w-full bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+              disabled={savingSettings}
+              className="w-full bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Settings
+              {savingSettings ? 'Saving...' : 'Save Settings'}
             </motion.button>
           </div>
         </motion.div>
 
-        {/* System Info */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
           transition={{ delay: 0.3 }}
           className="tech-card"
         >
@@ -482,10 +468,10 @@ const AdminSettings: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Danger Zone */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          animate="visible"
+          variants={cardVariants}
           transition={{ delay: 0.4 }}
           className="tech-card border-[#ff3b3b]"
         >
@@ -505,111 +491,65 @@ const AdminSettings: React.FC = () => {
               Logout
             </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowClearDataConfirm(true)}
-              className="w-full bg-[#ff3b3b]/20 hover:bg-[#ff3b3b]/30 border border-[#ff3b3b] text-[#ff3b3b] px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
-            >
-              Clear All Data
-            </motion.button>
+            <div className="rounded-lg border border-[#ff3b3b]/30 bg-[#ff3b3b]/10 p-4">
+              <p className="font-mono text-xs uppercase tracking-wider text-[#ff3b3b] mb-2">
+                Destructive actions
+              </p>
+              <p className="text-sm text-gray-300">
+                Bulk data reset is intentionally unavailable from this dashboard. The old
+                clear-all-data control pointed at a missing destructive endpoint and has been removed
+                rather than replaced with an unsafe shortcut.
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Logout Confirmation */}
-      <AnimatePresence>
-        {showLogoutConfirm && (
+      {showLogoutConfirm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowLogoutConfirm(false)}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={e => e.stopPropagation()}
+            className="tech-card w-full max-w-sm"
           >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={e => e.stopPropagation()}
-              className="tech-card w-full max-w-sm"
-            >
-              <h3 className="font-sora text-xl font-bold mb-2 text-[#ff3b3b]">
-                Confirm Logout
-              </h3>
-              <p className="text-gray-400 mb-6">
-                Are you sure you want to logout? You will need to sign in again.
-              </p>
+            <h3 className="font-sora text-xl font-bold mb-2 text-[#ff3b3b]">
+              Confirm Logout
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Are you sure you want to logout? You will need to sign in again.
+            </p>
 
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleLogout}
-                  className="flex-1 bg-[#ff3b3b] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
-                >
-                  Logout
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 bg-gray-700 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
-                >
-                  Cancel
-                </motion.button>
-              </div>
-            </motion.div>
+            <div className="flex gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  void handleLogout();
+                }}
+                className="flex-1 bg-[#ff3b3b] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
+              >
+                Logout
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 bg-gray-700 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
+              >
+                Cancel
+              </motion.button>
+            </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Clear Data Confirmation */}
-      <AnimatePresence>
-        {showClearDataConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowClearDataConfirm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={e => e.stopPropagation()}
-              className="tech-card w-full max-w-sm border-[#ff3b3b]"
-            >
-              <h3 className="font-sora text-xl font-bold mb-2 text-[#ff3b3b]">
-                Clear All Data?
-              </h3>
-              <p className="text-gray-400 mb-6">
-                This action is irreversible. All data including content, users, and settings will be permanently deleted.
-              </p>
-
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleClearData}
-                  className="flex-1 bg-[#ff3b3b] text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
-                >
-                  Clear Data
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowClearDataConfirm(false)}
-                  className="flex-1 bg-gray-700 text-white px-6 py-3 rounded-lg font-mono text-sm font-semibold transition-all"
-                >
-                  Cancel
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
     </DashboardLayout>
   );
 };

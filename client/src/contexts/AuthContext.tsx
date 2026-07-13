@@ -4,24 +4,83 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   login: (password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const ACCESS_TOKEN_KEY = 'sisg_admin_token';
+const REFRESH_TOKEN_KEY = 'sisg_admin_refresh_token';
+
+type AuthStatusResponse =
+  | { authenticated: false }
+  | { authenticated: true; accessToken: string; refreshToken?: string };
+
+type LoginResponse = {
+  accessToken?: string;
+  refreshToken?: string;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const clearAuthState = useCallback(() => {
-    localStorage.removeItem('sisg_admin_token');
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     setIsAuthenticated(false);
   }, []);
 
+  const storeSession = useCallback((session: LoginResponse) => {
+    if (!session.accessToken) {
+      clearAuthState();
+      return false;
+    }
+
+    localStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken);
+    if (session.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
+    }
+    setIsAuthenticated(true);
+    return true;
+  }, [clearAuthState]);
+
+  const refreshSession = useCallback(async () => {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) {
+      clearAuthState();
+      return false;
+    }
+
+    try {
+      const response = await fetch('/api/admin/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        clearAuthState();
+        return false;
+      }
+
+      const data = await response.json() as LoginResponse;
+      return storeSession(data);
+    } catch (error) {
+      console.error('Session refresh failed:', error);
+      clearAuthState();
+      return false;
+    }
+  }, [clearAuthState, storeSession]);
+
   const verifyToken = useCallback(async () => {
-    const token = localStorage.getItem('sisg_admin_token');
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (!token) {
+      if (localStorage.getItem(REFRESH_TOKEN_KEY)) {
+        await refreshSession();
+      }
       setLoading(false);
       return;
     }
@@ -33,13 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Authorization': `Bearer ${token}`,
         },
       });
+      const data = await response.json() as AuthStatusResponse;
 
-      if (response.ok) {
+      if (response.ok && data.authenticated) {
         setIsAuthenticated(true);
-      } else if (response.status === 401) {
-        clearAuthState();
       } else {
-        clearAuthState();
+        await refreshSession();
       }
     } catch (error) {
       console.error('Token verification failed:', error);
@@ -47,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, [clearAuthState]);
+  }, [clearAuthState, refreshSession]);
 
   useEffect(() => {
     verifyToken();
@@ -55,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const verificationInterval = setInterval(() => {
-      const token = localStorage.getItem('sisg_admin_token');
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token && isAuthenticated) {
         verifyToken();
       }
@@ -64,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(verificationInterval);
   }, [verifyToken, isAuthenticated]);
 
-  const login = async (password: string): Promise<boolean> => {
+  const login = useCallback(async (password: string): Promise<boolean> => {
     try {
       const response = await fetch('/api/admin/login', {
         method: 'POST',
@@ -75,10 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('sisg_admin_token', data.token);
-        setIsAuthenticated(true);
-        return true;
+        const data = await response.json() as LoginResponse;
+        return storeSession(data);
       } else {
         return false;
       }
@@ -86,10 +142,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Login failed:', error);
       return false;
     }
-  };
+  }, [storeSession]);
 
   const logout = async () => {
-    const token = localStorage.getItem('sisg_admin_token');
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token) {
       try {
         await fetch('/api/admin/logout', {
@@ -106,16 +162,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('sisg_admin_token');
-    const headers = new Headers(options.headers || {});
+    const withAuthHeaders = (accessToken?: string) => {
+      const headers = new Headers(options.headers || {});
+      if (accessToken) {
+        headers.set('Authorization', `Bearer ${accessToken}`);
+      }
+      return headers;
+    };
 
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    let response = await fetch(url, {
+      ...options,
+      headers: withAuthHeaders(localStorage.getItem(ACCESS_TOKEN_KEY) || undefined),
+    });
+
+    if (response.status !== 401) {
+      return response;
     }
 
-    const response = await fetch(url, {
+    const refreshed = await refreshSession();
+    if (!refreshed) {
+      clearAuthState();
+      return response;
+    }
+
+    response = await fetch(url, {
       ...options,
-      headers,
+      headers: withAuthHeaders(localStorage.getItem(ACCESS_TOKEN_KEY) || undefined),
     });
 
     if (response.status === 401) {
@@ -123,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return response;
-  }, [clearAuthState]);
+  }, [clearAuthState, refreshSession]);
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, authFetch }}>

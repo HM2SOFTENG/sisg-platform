@@ -12,6 +12,13 @@ import gatewayRouter from "./routes/gateway.js";
 import messagesRouter from "./routes/messages.js";
 import { sisgAgents } from "./services/sisg-agents.js";
 import { storage } from "./services/storage.js";
+import { ensureBootstrapAdmin } from "./services/auth-store.js";
+import { createRateLimit } from "./middleware/rate-limit.js";
+import {
+  getClawbotApiKey,
+  hasConfiguredClawbotApiKey,
+  validateClawbotApiKey,
+} from "./services/clawbot-auth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +26,12 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  const publicWriteRateLimit = createRateLimit({
+    key: "public-write",
+    windowMs: 10 * 60 * 1000,
+    maxRequests: 20,
+    message: "Too many public write requests. Try again later.",
+  });
 
   // WebSocket server for ClawBot real-time connections
   const wss = new WebSocketServer({ noServer: true });
@@ -28,7 +41,7 @@ async function startServer() {
     if (req.url?.startsWith("/api/clawbot/ws")) {
       const urlObj = new URL(req.url, `http://${req.headers.host}`);
       const apiKey = urlObj.searchParams.get("key") || (req.headers["x-api-key"] as string);
-      if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+      if (!validateClawbotApiKey(apiKey)) {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
         return;
@@ -44,6 +57,20 @@ async function startServer() {
   // Middleware
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.header("X-Content-Type-Options", "nosniff");
+    res.header("X-Frame-Options", "DENY");
+    res.header("Referrer-Policy", "no-referrer");
+    res.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (process.env.NODE_ENV === "production") {
+      res.header(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains; preload"
+      );
+    }
+    next();
+  });
 
   // CORS headers for API endpoints
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -64,9 +91,9 @@ async function startServer() {
   });
 
   // Contact form submission endpoint
-  app.post("/api/contact", async (req: Request, res: Response) => {
+  app.post("/api/contact", publicWriteRateLimit, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, subject, message } = req.body;
+      const { name, email, phone, org, subject, message } = req.body;
 
       // Validation
       if (!name || !email || !subject || !message) {
@@ -82,7 +109,7 @@ async function startServer() {
       }
 
       // Save to storage
-      storage.add("submissions", { name, email, phone, subject, message, status: "new" });
+      storage.add("submissions", { name, email, phone, org, subject, message, status: "new" });
 
       // Send to Slack
       await slack.notifyFormSubmission({
@@ -97,7 +124,9 @@ async function startServer() {
       await slack.notifyUserActivity({
         type: "other",
         user: { email, name },
-        details: `Submitted contact form: "${subject}"`,
+        details: org
+          ? `Submitted contact form: "${subject}" for ${org}`
+          : `Submitted contact form: "${subject}"`,
       });
 
       res.json({
@@ -120,7 +149,7 @@ async function startServer() {
   });
 
   // Error tracking endpoint (for frontend errors)
-  app.post("/api/errors", async (req: Request, res: Response) => {
+  app.post("/api/errors", publicWriteRateLimit, async (req: Request, res: Response) => {
     try {
       const { title, message, context, severity } = req.body;
 
@@ -168,6 +197,21 @@ async function startServer() {
   server.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}/`);
     console.log(`API endpoints available at http://localhost:${port}/api/`);
+    if (!hasConfiguredClawbotApiKey() && process.env.NODE_ENV !== "production") {
+      console.warn("[CLAWBOT] Using local development fallback API key. Set CLAWBOT_API_KEY to remove this fallback.");
+    }
+
+    try {
+      getClawbotApiKey();
+    } catch (error) {
+      console.error("Failed to initialize ClawBot API key:", error);
+    }
+
+    try {
+      await ensureBootstrapAdmin();
+    } catch (error) {
+      console.error("Failed to initialize auth bootstrap:", error);
+    }
 
     // Initialize SISG business agents and start scheduler
     try {

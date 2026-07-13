@@ -1,7 +1,9 @@
 import axios from "axios";
 import express, { Router, Request, Response } from "express";
-import { adminAuth } from "../middleware/auth.js";
+import { adminAuth, requireRoles } from "../middleware/auth.js";
 import { clawbot } from "../services/clawbot.js";
+import { getClawbotApiKey, validateClawbotApiKey } from "../services/clawbot-auth.js";
+import { auditAdminAction } from "../services/security-audit.js";
 
 const router: Router = express.Router();
 
@@ -10,7 +12,7 @@ const router: Router = express.Router();
 // =============================================================================
 
 // ---- BOT STATUS ----
-router.get("/api/admin/clawbot/status", adminAuth, async (_req: Request, res: Response) => {
+router.get("/api/admin/clawbot/status", adminAuth, requireRoles("admin"), async (_req: Request, res: Response) => {
   try {
     const status = await clawbot.getStatus();
     const connection = clawbot.getConnectionInfo();
@@ -23,7 +25,7 @@ router.get("/api/admin/clawbot/status", adminAuth, async (_req: Request, res: Re
 // ---- HEARTBEAT (called BY ClawBot, authenticated with API key) ----
 router.post("/api/clawbot/heartbeat", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   if (!req.body || typeof req.body !== 'object') {
@@ -34,7 +36,7 @@ router.post("/api/clawbot/heartbeat", (req: Request, res: Response) => {
 });
 
 // ---- AGENTS ----
-router.get("/api/admin/clawbot/agents", adminAuth, async (_req: Request, res: Response) => {
+router.get("/api/admin/clawbot/agents", adminAuth, requireRoles("admin"), async (_req: Request, res: Response) => {
   try {
     const agents = await clawbot.getAgents();
     res.json(agents);
@@ -43,7 +45,7 @@ router.get("/api/admin/clawbot/agents", adminAuth, async (_req: Request, res: Re
   }
 });
 
-router.post("/api/admin/clawbot/agents", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/clawbot/agents", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.agent.create"), async (req: Request, res: Response) => {
   try {
     const agent = await clawbot.createAgent({
       name: req.body.name,
@@ -61,7 +63,7 @@ router.post("/api/admin/clawbot/agents", adminAuth, async (req: Request, res: Re
   }
 });
 
-router.put("/api/admin/clawbot/agents/:id", adminAuth, async (req: Request, res: Response) => {
+router.put("/api/admin/clawbot/agents/:id", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.agent.update"), async (req: Request, res: Response) => {
   try {
     const result = await clawbot.updateAgent(req.params.id, req.body);
     if (!result) return res.status(404).json({ error: "Agent not found" });
@@ -72,7 +74,7 @@ router.put("/api/admin/clawbot/agents/:id", adminAuth, async (req: Request, res:
 });
 
 // ---- TASKS ----
-router.get("/api/admin/clawbot/tasks", adminAuth, async (req: Request, res: Response) => {
+router.get("/api/admin/clawbot/tasks", adminAuth, requireRoles("admin"), async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined;
     const tasks = await clawbot.getTasks(status);
@@ -82,7 +84,7 @@ router.get("/api/admin/clawbot/tasks", adminAuth, async (req: Request, res: Resp
   }
 });
 
-router.post("/api/admin/clawbot/tasks", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/clawbot/tasks", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.task.create"), async (req: Request, res: Response) => {
   try {
     const task = await clawbot.createTask({
       command: req.body.command,
@@ -97,7 +99,7 @@ router.post("/api/admin/clawbot/tasks", adminAuth, async (req: Request, res: Res
 });
 
 // Task status update (called from dashboard — admin auth)
-router.put("/api/admin/clawbot/tasks/:id", adminAuth, (req: Request, res: Response) => {
+router.put("/api/admin/clawbot/tasks/:id", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.task.update"), (req: Request, res: Response) => {
   try {
     const result = clawbot.updateTask(req.params.id, req.body);
     if (!result) return res.status(404).json({ error: "Task not found" });
@@ -108,7 +110,7 @@ router.put("/api/admin/clawbot/tasks/:id", adminAuth, (req: Request, res: Respon
 });
 
 // Cancel a task (dashboard)
-router.post("/api/admin/clawbot/tasks/:id/cancel", adminAuth, (req: Request, res: Response) => {
+router.post("/api/admin/clawbot/tasks/:id/cancel", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.task.cancel"), (req: Request, res: Response) => {
   try {
     const result = clawbot.updateTask(req.params.id, {
       status: "cancelled",
@@ -122,7 +124,7 @@ router.post("/api/admin/clawbot/tasks/:id/cancel", adminAuth, (req: Request, res
 });
 
 // Retry a failed task (dashboard) — creates a new task with the same command
-router.post("/api/admin/clawbot/tasks/:id/retry", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/clawbot/tasks/:id/retry", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.task.retry"), async (req: Request, res: Response) => {
   try {
     const tasks = await clawbot.getTasks();
     const original = tasks.find((t: any) => t.id === req.params.id);
@@ -143,7 +145,7 @@ router.post("/api/admin/clawbot/tasks/:id/retry", adminAuth, async (req: Request
 // Task status update (called BY ClawBot — API key auth)
 router.put("/api/clawbot/tasks/:id", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   const result = clawbot.updateTask(req.params.id, req.body);
@@ -152,7 +154,7 @@ router.put("/api/clawbot/tasks/:id", (req: Request, res: Response) => {
 });
 
 // ---- COMMANDS ----
-router.post("/api/admin/clawbot/commands", adminAuth, async (req: Request, res: Response) => {
+router.post("/api/admin/clawbot/commands", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.command.send"), async (req: Request, res: Response) => {
   try {
     const result = await clawbot.sendCommand({
       command: req.body.command,
@@ -167,7 +169,7 @@ router.post("/api/admin/clawbot/commands", adminAuth, async (req: Request, res: 
 });
 
 // ---- LOGS ----
-router.get("/api/admin/clawbot/logs", adminAuth, (req: Request, res: Response) => {
+router.get("/api/admin/clawbot/logs", adminAuth, requireRoles("admin"), (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const level = req.query.level as string | undefined;
@@ -182,7 +184,7 @@ router.get("/api/admin/clawbot/logs", adminAuth, (req: Request, res: Response) =
 // Log ingestion (called BY ClawBot)
 router.post("/api/clawbot/logs", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   const entries = Array.isArray(req.body) ? req.body.slice(0, 100) : [req.body]; // Cap at 100 entries per request
@@ -205,7 +207,7 @@ router.get("/api/admin/clawbot/metrics", adminAuth, (_req: Request, res: Respons
 // Step 1: ClawBot initiates connection by providing its reachable URL
 router.post("/api/clawbot/connect", async (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   try {
@@ -223,7 +225,7 @@ router.post("/api/clawbot/connect", async (req: Request, res: Response) => {
 // Step 2: ClawBot verifies the challenge
 router.post("/api/clawbot/verify", async (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   try {
@@ -241,7 +243,7 @@ router.post("/api/clawbot/verify", async (req: Request, res: Response) => {
 // ClawBot disconnects cleanly
 router.post("/api/clawbot/disconnect", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   const result = clawbot.disconnect();
@@ -251,14 +253,14 @@ router.post("/api/clawbot/disconnect", (req: Request, res: Response) => {
 // ClawBot polls for pending work (commands + queued tasks)
 router.get("/api/clawbot/poll", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"];
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   clawbot.pollPendingWork().then(work => res.json(work)).catch(() => res.status(500).json({ error: "Failed to poll" }));
 });
 
 // Admin: manually test connection from dashboard
-router.post("/api/admin/clawbot/test-connection", adminAuth, async (_req: Request, res: Response) => {
+router.post("/api/admin/clawbot/test-connection", adminAuth, requireRoles("admin"), auditAdminAction("clawbot.connection.test"), async (_req: Request, res: Response) => {
   try {
     const info = clawbot.getConnectionInfo();
     if (!info.activeConnection) {
@@ -266,7 +268,7 @@ router.post("/api/admin/clawbot/test-connection", adminAuth, async (_req: Reques
     }
     // Try to ping ClawBot at its registered URL
     const resp = await axios.get(`${info.activeConnection.url}/api/ping`, {
-      headers: { "X-API-Key": process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026" },
+      headers: { "X-API-Key": getClawbotApiKey() },
       timeout: 5000,
     });
     if (resp.data?.pong === true) {
@@ -282,7 +284,7 @@ router.post("/api/admin/clawbot/test-connection", adminAuth, async (_req: Reques
 // ---- SSE ENDPOINT (EventSource fallback — ClawBot connects here for real-time push) ----
 router.get("/api/clawbot/stream", (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"] || req.query.key;
-  if (apiKey !== (process.env.CLAWBOT_API_KEY || "clawbot-sisg-2026")) {
+  if (!validateClawbotApiKey(apiKey)) {
     return res.status(401).json({ error: "Invalid API key" });
   }
   res.setHeader("Content-Type", "text/event-stream");
@@ -303,7 +305,7 @@ router.get("/api/clawbot/stream", (req: Request, res: Response) => {
 });
 
 // ---- CONNECTION STATUS (for dashboard — includes WS/SSE client counts) ----
-router.get("/api/admin/clawbot/connection", adminAuth, (_req: Request, res: Response) => {
+router.get("/api/admin/clawbot/connection", adminAuth, requireRoles("admin"), (_req: Request, res: Response) => {
   const info = clawbot.getConnectionInfo();
   res.json({
     ...info,

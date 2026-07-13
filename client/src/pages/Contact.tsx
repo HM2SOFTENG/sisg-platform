@@ -6,6 +6,15 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
 
+type ContactFormState = {
+  name: string;
+  email: string;
+  org: string;
+  message: string;
+};
+
+type FormErrors = Partial<Record<keyof ContactFormState, string>>;
+
 const contactTypes = [
   { id: "general", label: "General Inquiry", color: "#0066ff" },
   { id: "cybersecurity", label: "Cybersecurity", color: "#00d4ff" },
@@ -23,19 +32,92 @@ const faqs = [
   { q: "What is your typical project engagement timeline?", a: "Discovery and proposal typically take 1–2 weeks. Project kickoff follows within 30 days of contract award. We operate in 2-week Agile sprints with weekly stakeholder updates." },
 ];
 
+const initialFormState: ContactFormState = { name: "", email: "", org: "", message: "" };
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Contact() {
   const [selectedType, setSelectedType] = useState("general");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", org: "", message: "" });
+  const [form, setForm] = useState<ContactFormState>(initialFormState);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedContactType = contactTypes.find((type) => type.id === selectedType);
+
+  const validateForm = () => {
+    const nextErrors: FormErrors = {};
+
+    if (!form.name.trim()) {
+      nextErrors.name = "Full name is required.";
+    }
+
+    if (!form.email.trim()) {
+      nextErrors.email = "Email address is required.";
+    } else if (!emailRegex.test(form.email.trim())) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (!form.message.trim()) {
+      nextErrors.message = "Message is required.";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    if (!validateForm()) {
+      return;
+    }
+
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setSubmitting(false);
-    toast.success("Message sent! We\'ll respond within 24 hours.");
-    setForm({ name: "", email: "", org: "", message: "" });
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          org: form.org.trim() || undefined,
+          subject: selectedContactType?.label || "General Inquiry",
+          message: form.message.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorMessage = typeof data?.error === "string"
+          ? data.error
+          : "We couldn't send your message. Please try again.";
+        setSubmitError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const successMessage = typeof data?.message === "string"
+        ? data.message
+        : "Message sent. We'll respond within 24 hours.";
+      setSubmitSuccess(successMessage);
+      setForm(initialFormState);
+      setErrors({});
+      toast.success(successMessage);
+    } catch (error) {
+      console.error("Contact form submission failed:", error);
+      const errorMessage = "We couldn't reach the server. Please try again in a moment.";
+      setSubmitError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -92,16 +174,32 @@ export default function Contact() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+                  {submitSuccess && (
+                    <div className="border border-[#00e5a0]/30 bg-[#00e5a0]/10 px-3 py-2 text-[11px] sm:text-xs text-[#8af5ca] font-mono">
+                      {submitSuccess}
+                    </div>
+                  )}
+                  {submitError && (
+                    <div className="border border-[#ff6b35]/30 bg-[#ff6b35]/10 px-3 py-2 text-[11px] sm:text-xs text-[#ffb199] font-mono">
+                      {submitError}
+                    </div>
+                  )}
                   <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Full Name *</label>
                       <input
                         required
                         value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                        onChange={(e) => {
+                          setForm({ ...form, name: e.target.value });
+                          if (errors.name) setErrors((current) => ({ ...current, name: undefined }));
+                        }}
+                        disabled={submitting}
+                        aria-invalid={Boolean(errors.name)}
+                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 disabled:opacity-60"
                         placeholder="John Smith"
                       />
+                      {errors.name && <p className="mt-1 text-[10px] sm:text-xs text-[#ffb199] font-mono">{errors.name}</p>}
                     </div>
                     <div>
                       <label className="text-[9px] sm:text-[10px] font-mono text-gray-600 uppercase tracking-wider block mb-1">Email Address *</label>
@@ -109,10 +207,16 @@ export default function Contact() {
                         required
                         type="email"
                         value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                        onChange={(e) => {
+                          setForm({ ...form, email: e.target.value });
+                          if (errors.email) setErrors((current) => ({ ...current, email: undefined }));
+                        }}
+                        disabled={submitting}
+                        aria-invalid={Boolean(errors.email)}
+                        className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 disabled:opacity-60"
                         placeholder="john@agency.gov"
                       />
+                      {errors.email && <p className="mt-1 text-[10px] sm:text-xs text-[#ffb199] font-mono">{errors.email}</p>}
                     </div>
                   </div>
                   <div>
@@ -120,7 +224,8 @@ export default function Contact() {
                     <input
                       value={form.org}
                       onChange={(e) => setForm({ ...form, org: e.target.value })}
-                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700"
+                      disabled={submitting}
+                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 disabled:opacity-60"
                       placeholder="Department of Defense"
                     />
                   </div>
@@ -130,10 +235,16 @@ export default function Contact() {
                       required
                       rows={4}
                       value={form.message}
-                      onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 resize-none"
+                      onChange={(e) => {
+                        setForm({ ...form, message: e.target.value });
+                        if (errors.message) setErrors((current) => ({ ...current, message: undefined }));
+                      }}
+                      disabled={submitting}
+                      aria-invalid={Boolean(errors.message)}
+                      className="w-full bg-[oklch(0.085_0.025_255)] border border-white/10 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-2 sm:py-2.5 focus:outline-none focus:border-[#0066ff]/50 transition-colors font-mono placeholder:text-gray-700 resize-none disabled:opacity-60"
                       placeholder="Describe your project or inquiry..."
                     />
+                    {errors.message && <p className="mt-1 text-[10px] sm:text-xs text-[#ffb199] font-mono">{errors.message}</p>}
                   </div>
                   <button
                     type="submit"

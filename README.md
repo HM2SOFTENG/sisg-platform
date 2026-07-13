@@ -24,19 +24,100 @@ Sentinel Integrated Solutions Group (SISG) — a veteran-owned IT consulting and
 # Install dependencies
 pnpm install
 
-# Start development server (Vite on localhost:3000)
+# Frontend-only Vite dev server
 pnpm dev
 
 # Type checking
 pnpm check
 
-# Full local admin/server run with local-only env vars
-pnpm build
-pnpm start:local
-
 # Format code
 pnpm format
 ```
+
+### Local Full-Stack Run
+
+`pnpm dev` only starts the Vite frontend. It does **not** run the Express API, and there is no Vite proxy configured for `/api`.
+
+For the full local app, including admin auth and API-backed screens:
+
+```bash
+# 1) Build the frontend + server bundle
+pnpm build
+
+# 2) Run the local Express server on a non-production port
+PORT=3010 AUTH_BOOTSTRAP_EMAIL=admin@sentinelintegratedgroup.com AUTH_BOOTSTRAP_PASSWORD=local-dev-password CORS_ORIGIN=http://localhost:8081 pnpm start:local
+```
+
+Or use the root helper script once your local env is set:
+
+```bash
+pnpm dev:api
+```
+
+Then open:
+
+- Web app: `http://localhost:3010`
+- Health check: `http://localhost:3010/api/health`
+
+Notes:
+
+- `.env.local` is gitignored and can hold your local `AUTH_BOOTSTRAP_EMAIL`, `AUTH_BOOTSTRAP_PASSWORD`, `PORT`, and `CORS_ORIGIN`.
+- Local helper scripts default auth to `DB_PROVIDER=file` so simulator/dev login works even when `.env.infrastructure.local` contains private managed Postgres credentials.
+- On first startup with no existing auth users, the server seeds a bootstrap admin account from `AUTH_BOOTSTRAP_EMAIL` + `AUTH_BOOTSTRAP_PASSWORD`.
+- `ADMIN_PIN` remains only as a migration fallback for bootstrap seeding and should be phased out.
+- `./scripts/run-local-api.sh` now loads `.env.infrastructure.local` first, then `.env.local`; explicit shell env still overrides both.
+- I verified this path locally: the server booted, the bootstrap admin user seeded, and login/verify/refresh/logout all succeeded.
+
+### Expo + iOS Simulator
+
+Recommended one-command local iOS Simulator flow:
+
+```bash
+./scripts/run-mobile-ios-dev.sh
+```
+
+That launcher:
+- starts the local SISG API if needed
+- waits for `/api/health`
+- opens Simulator
+- forces the Expo app to use `http://localhost:<PORT>` for the simulator, which is the most deterministic dev route
+
+If you want the split/manual flow instead:
+
+```bash
+# terminal 1
+./scripts/run-local-api.sh
+
+# terminal 2
+./scripts/run-mobile-ios.sh
+```
+
+If you want the plain Expo dev server without auto-opening iOS Simulator:
+
+```bash
+./scripts/run-mobile-expo.sh
+```
+
+Defaults:
+
+- API port: `3010`
+- Bootstrap auth: set `AUTH_BOOTSTRAP_EMAIL` and `AUTH_BOOTSTRAP_PASSWORD` in shell env or `.env.local`
+- Expo API port: `3010`
+- Recommended iOS Simulator API host: `localhost`
+- Expo API host: auto-resolved from the active Expo dev session when possible; otherwise falls back to `localhost` on iOS Simulator and `10.0.2.2` on Android emulator
+- Expo cache clear: enabled by default in the helper scripts
+
+Overrides:
+
+```bash
+PORT=4010 AUTH_BOOTSTRAP_EMAIL=admin@sentinelintegratedgroup.com AUTH_BOOTSTRAP_PASSWORD=my-password ./scripts/run-local-api.sh
+PORT=4010 ./scripts/run-mobile-ios-dev.sh
+API_PORT=4010 ./scripts/run-mobile-ios.sh
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:4010 ./scripts/run-mobile-expo.sh
+EXPO_CLEAR_CACHE=0 ./scripts/run-mobile-ios.sh
+```
+
+Avoid pinning `apps/mobile/.env.local` to `EXPO_PUBLIC_API_BASE_URL=http://localhost:...` unless you intentionally want Simulator-only loopback behavior. On a physical device, that bypasses host auto-detection and points the app back at the phone.
 
 ## Building
 
@@ -71,11 +152,13 @@ cp .env.example .env.production
 # Edit .env.production with production values
 ```
 
-For local-only admin login and test config, create `.env.local` (gitignored):
+For local-only operator login and test config, create `.env.local` (gitignored):
 
 ```bash
-ADMIN_PIN=your-local-admin-pin
-PORT=3001
+AUTH_BOOTSTRAP_EMAIL=admin@sentinelintegratedgroup.com
+AUTH_BOOTSTRAP_PASSWORD=your-local-admin-password
+PORT=3010
+CORS_ORIGIN=http://localhost:8081
 ```
 
 ## GitHub Actions Deployment

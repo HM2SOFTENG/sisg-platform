@@ -11,6 +11,7 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "start:local": "NODE_ENV=production node --env-file-if-exists=.env.local dist/index.js",
+    "test:smoke": "tsx --test server/api-smoke.test.ts",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
     "check:workspaces": "pnpm -r --if-present check",

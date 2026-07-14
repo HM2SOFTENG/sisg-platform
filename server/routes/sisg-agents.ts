@@ -633,14 +633,22 @@ router.post("/api/admin/agents/:slug/stop", adminAuth, requireRoles("admin"), au
  * POST /api/admin/agents/:slug/run
  * Manually trigger an agent run
  */
-router.post("/api/admin/agents/:slug/run", adminAuth, requireRoles("admin"), auditAdminAction("agents.run"), async (req: Request, res: Response) => {
+async function handleAgentRunRequest(req: Request, res: Response, slug: string) {
   try {
-    const run = await sisgAgents.runAgent(req.params.slug, "manual");
+    const run = await sisgAgents.runAgent(slug, "manual");
     res.status(201).json({ success: true, data: run, message: "Agent run triggered" });
   } catch (error: any) {
     const msg = error?.message || "Failed to trigger agent run";
     res.status(msg.includes("not found") ? 404 : 500).json({ success: false, error: msg });
   }
+}
+
+router.post("/api/admin/agents/contracts/run", adminAuth, requireRoles("admin"), auditAdminAction("agents.run"), async (req: Request, res: Response) => {
+  await handleAgentRunRequest(req, res, "contracts");
+});
+
+router.post("/api/admin/agents/:slug/run", adminAuth, requireRoles("admin"), auditAdminAction("agents.run"), async (req: Request, res: Response) => {
+  await handleAgentRunRequest(req, res, req.params.slug);
 });
 
 /**

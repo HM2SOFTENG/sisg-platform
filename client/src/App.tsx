@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -18,28 +19,25 @@ import Pricing from "./pages/Pricing";
 import AdminLogin from "./pages/AdminLogin";
 
 // Dashboard pages
-import Dashboard from "./pages/Dashboard";
-import Analytics from "./pages/Analytics";
-import { Tasks, CalendarPage, TimeTracking, KnowledgeBase } from "./pages/DashboardPlaceholders";
-import Reports from "./pages/admin/Reports";
-
-// Admin pages
-import FormSubmissions from "./pages/admin/FormSubmissions";
-import ContractBidding from "./pages/admin/ContractBidding";
-import ContractMonitoring from "./pages/admin/ContractMonitoring";
-import AIContractGen from "./pages/admin/AIContractGen";
-import ProjectManagement from "./pages/admin/ProjectManagement";
-import Financials from "./pages/admin/Financials";
-import MarketingDashboard from "./pages/admin/MarketingDashboard";
-import PartnershipAdmin from "./pages/admin/PartnershipAdmin";
-import ContentManagement from "./pages/admin/ContentManagement";
-import UserManagement from "./pages/admin/UserManagement";
-import AdminSettings from "./pages/admin/AdminSettings";
-import ClawBotCenter from "./pages/admin/ClawBotCenter";
-import SisgAgents from "./pages/admin/SisgAgents";
-import CommandPortal from "./pages/admin/CommandPortal";
-import Messaging from "./pages/admin/Messaging";
-import UserSettings from "./pages/UserSettings";
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Reports = lazy(() => import("./pages/admin/Reports"));
+const FormSubmissions = lazy(() => import("./pages/admin/FormSubmissions"));
+const ContractBidding = lazy(() => import("./pages/admin/ContractBidding"));
+const ContractMonitoring = lazy(() => import("./pages/admin/ContractMonitoring"));
+const AIContractGen = lazy(() => import("./pages/admin/AIContractGen"));
+const ProjectManagement = lazy(() => import("./pages/admin/ProjectManagement"));
+const Financials = lazy(() => import("./pages/admin/Financials"));
+const MarketingDashboard = lazy(() => import("./pages/admin/MarketingDashboard"));
+const PartnershipAdmin = lazy(() => import("./pages/admin/PartnershipAdmin"));
+const ContentManagement = lazy(() => import("./pages/admin/ContentManagement"));
+const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const ClawBotCenter = lazy(() => import("./pages/admin/ClawBotCenter"));
+const SisgAgents = lazy(() => import("./pages/admin/SisgAgents"));
+const CommandPortal = lazy(() => import("./pages/admin/CommandPortal"));
+const Messaging = lazy(() => import("./pages/admin/Messaging"));
+const UserSettings = lazy(() => import("./pages/UserSettings"));
 import UserProfile from "./pages/UserProfile";
 
 function ProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
@@ -47,6 +45,22 @@ function ProtectedDashboard({ component: Component }: { component: React.Compone
     <ProtectedRoute>
       <Component />
     </ProtectedRoute>
+  );
+}
+
+function DashboardFallback() {
+  return (
+    <div className="min-h-screen bg-[oklch(0.07_0.025_255)] flex items-center justify-center">
+      <div className="text-gray-500 text-xs font-mono">Loading module...</div>
+    </div>
+  );
+}
+
+function LazyProtectedDashboard({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <Suspense fallback={<DashboardFallback />}>
+      <ProtectedDashboard component={Component} />
+    </Suspense>
   );
 }
 
@@ -65,29 +79,25 @@ function Router() {
       <Route path="/u/:userId" component={UserProfile} />
 
       {/* Protected Dashboard */}
-      <Route path="/dashboard">{() => <ProtectedDashboard component={Dashboard} />}</Route>
-      <Route path="/dashboard/analytics">{() => <ProtectedDashboard component={Analytics} />}</Route>
-      <Route path="/dashboard/submissions">{() => <ProtectedDashboard component={FormSubmissions} />}</Route>
-      <Route path="/dashboard/contracts">{() => <ProtectedDashboard component={ContractBidding} />}</Route>
-      <Route path="/dashboard/monitoring">{() => <ProtectedDashboard component={ContractMonitoring} />}</Route>
-      <Route path="/dashboard/contract-gen">{() => <ProtectedDashboard component={AIContractGen} />}</Route>
-      <Route path="/dashboard/projects">{() => <ProtectedDashboard component={ProjectManagement} />}</Route>
-      <Route path="/dashboard/team">{() => <ProtectedDashboard component={UserManagement} />}</Route>
-      <Route path="/dashboard/finance">{() => <ProtectedDashboard component={Financials} />}</Route>
-      <Route path="/dashboard/marketing">{() => <ProtectedDashboard component={MarketingDashboard} />}</Route>
-      <Route path="/dashboard/partnerships">{() => <ProtectedDashboard component={PartnershipAdmin} />}</Route>
-      <Route path="/dashboard/content">{() => <ProtectedDashboard component={ContentManagement} />}</Route>
-      <Route path="/dashboard/tasks">{() => <ProtectedDashboard component={Tasks} />}</Route>
-      <Route path="/dashboard/calendar">{() => <ProtectedDashboard component={CalendarPage} />}</Route>
-      <Route path="/dashboard/time">{() => <ProtectedDashboard component={TimeTracking} />}</Route>
-      <Route path="/dashboard/knowledge">{() => <ProtectedDashboard component={KnowledgeBase} />}</Route>
-      <Route path="/dashboard/reports">{() => <ProtectedDashboard component={Reports} />}</Route>
-      <Route path="/dashboard/command">{() => <ProtectedDashboard component={CommandPortal} />}</Route>
-      <Route path="/dashboard/agents">{() => <ProtectedDashboard component={SisgAgents} />}</Route>
-      <Route path="/dashboard/clawbot">{() => <ProtectedDashboard component={ClawBotCenter} />}</Route>
-      <Route path="/dashboard/settings">{() => <ProtectedDashboard component={AdminSettings} />}</Route>
-      <Route path="/dashboard/messages">{() => <ProtectedDashboard component={Messaging} />}</Route>
-      <Route path="/dashboard/user-settings">{() => <ProtectedDashboard component={UserSettings} />}</Route>
+      <Route path="/dashboard">{() => <LazyProtectedDashboard component={Dashboard} />}</Route>
+      <Route path="/dashboard/analytics">{() => <LazyProtectedDashboard component={Analytics} />}</Route>
+      <Route path="/dashboard/submissions">{() => <LazyProtectedDashboard component={FormSubmissions} />}</Route>
+      <Route path="/dashboard/contracts">{() => <LazyProtectedDashboard component={ContractBidding} />}</Route>
+      <Route path="/dashboard/monitoring">{() => <LazyProtectedDashboard component={ContractMonitoring} />}</Route>
+      <Route path="/dashboard/contract-gen">{() => <LazyProtectedDashboard component={AIContractGen} />}</Route>
+      <Route path="/dashboard/projects">{() => <LazyProtectedDashboard component={ProjectManagement} />}</Route>
+      <Route path="/dashboard/team">{() => <LazyProtectedDashboard component={UserManagement} />}</Route>
+      <Route path="/dashboard/finance">{() => <LazyProtectedDashboard component={Financials} />}</Route>
+      <Route path="/dashboard/marketing">{() => <LazyProtectedDashboard component={MarketingDashboard} />}</Route>
+      <Route path="/dashboard/partnerships">{() => <LazyProtectedDashboard component={PartnershipAdmin} />}</Route>
+      <Route path="/dashboard/content">{() => <LazyProtectedDashboard component={ContentManagement} />}</Route>
+      <Route path="/dashboard/reports">{() => <LazyProtectedDashboard component={Reports} />}</Route>
+      <Route path="/dashboard/command">{() => <LazyProtectedDashboard component={CommandPortal} />}</Route>
+      <Route path="/dashboard/agents">{() => <LazyProtectedDashboard component={SisgAgents} />}</Route>
+      <Route path="/dashboard/clawbot">{() => <LazyProtectedDashboard component={ClawBotCenter} />}</Route>
+      <Route path="/dashboard/settings">{() => <LazyProtectedDashboard component={AdminSettings} />}</Route>
+      <Route path="/dashboard/messages">{() => <LazyProtectedDashboard component={Messaging} />}</Route>
+      <Route path="/dashboard/user-settings">{() => <LazyProtectedDashboard component={UserSettings} />}</Route>
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

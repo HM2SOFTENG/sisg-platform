@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   LayoutDashboard, FolderKanban, Users, DollarSign, BarChart3,
-  CheckSquare, Calendar, Clock, BookOpen, FileText, Settings,
+  FileText, Settings,
   Shield, Menu, X, Bell, Search, ChevronRight, Terminal, LogOut,
   Inbox, FileSignature, Activity, Brain, Megaphone, Handshake, PenTool, Bot,
   Sun, Moon, Palette, Zap, MessageSquare, SlidersHorizontal
@@ -37,7 +37,6 @@ const navSections: NavSection[] = [
   ]},
   { section: "Content", items: [
     { label: "Pages & Posts", href: "/dashboard/content", icon: PenTool, color: "#8b5cf6" },
-    { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen, color: "#00d4ff" },
   ]},
   { section: "Communication", items: [
     { label: "Messages", href: "/dashboard/messages", icon: MessageSquare, color: "#00d4ff" },
